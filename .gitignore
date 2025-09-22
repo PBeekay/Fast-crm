@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Virtual environment
+venv/
+.venv/
+
+# Environment files
+.env
+.env.*
+
+# Databases / local files
+crm.db
+
+# IDE/editor
+.vscode/
+.idea/
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+coverage/
+
+# OS files
+Thumbs.db
+.DS_Store
+
