@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastCRM | Modern Customer Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginWindow">
+        <div class="login-container">
+            <div class="login-box">
+                <div class="login-header">
+                    <div class="brand">
+                        <div class="brand-logo">
+                            <i class="ri-cloud-line"></i>
+                        </div>
+                        <h1>FastCRM</h1>
+                    </div>
+                    <p>Welcome back! Please login to your account.</p>
+                </div>
+                <form class="login-form" onsubmit="return false;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <i class="ri-mail-line"></i>
+                            <input type="email" id="email" placeholder="Email address">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <i class="ri-lock-line"></i>
+                            <input type="password" id="password" placeholder="Password">
+                        </div>
+                    </div>
+                    <div class="error-message" id="loginError"></div>
+                    <div class="form-actions">
+                        <button id="loginBtn" class="btn btn-primary">
+                            <i class="ri-login-circle-line"></i>
+                            Sign In
+                        </button>
+                        <a href="/register" class="btn btn-outline">
+                            <i class="ri-user-add-line"></i>
+                            Create Account
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard hidden" id="crmWindow">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <i class="ri-cloud-line"></i>
+                <span>FastCRM</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <button class="nav-item active" id="customersTab">
+                    <i class="ri-group-line"></i>
+                    <span>Customers</span>
+                </button>
+                <button class="nav-item" id="notesTab">
+                    <i class="ri-sticky-note-line"></i>
+                    <span>Notes</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="nav-item" id="logoutBtn">
+                    <i class="ri-logout-box-line"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Customers View -->
+            <div id="customersSection" class="content-section">
+                <div class="page-header">
+                    <div>
+                        <h1>Customers</h1>
+                        <p>Manage and track your customer relationships</p>
+                    </div>
+                    <button id="addCustomerBtn" class="btn btn-primary">
+                        <i class="ri-add-line"></i>
+                        Add Customer
+                    </button>
+                </div>
+
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="ri-team-line"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Total Customers</h3>
+                            <p id="customerCount">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="ri-file-list-line"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Total Notes</h3>
+                            <p id="noteCount">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-table">
+                    <div class="table-toolbar">
+                        <div class="search-box">
+                            <i class="ri-search-line"></i>
+                            <input type="text" placeholder="Search customers..." id="customerSearch">
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Company</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customersList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes View -->
+            <div id="notesSection" class="content-section hidden">
+                <div class="page-header">
+                    <div>
+                        <h1>Notes</h1>
+                        <p>Track customer interactions and important information</p>
+                    </div>
+                    <div class="header-actions">
+                        <select id="customerSelect" class="select-box">
+                            <option value="">All Customers</option>
+                        </select>
+                        <button id="addNoteBtn" class="btn btn-primary">
+                            <i class="ri-add-line"></i>
+                            Add Note
+                        </button>
+                    </div>
+                </div>
+
+                <div class="notes-grid" id="notesList">
+                    <!-- Notes will be dynamically added here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Customer Modal -->
+    <div class="modal hidden" id="addCustomerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Customer</h2>
+                <button class="btn-icon" id="closeCustomerModal">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <div class="form-field">
+                        <i class="ri-user-line"></i>
+                        <input type="text" id="customerName" placeholder="Enter customer name">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <div class="form-field">
+                        <i class="ri-mail-line"></i>
+                        <input type="email" id="customerEmail" placeholder="Enter email address">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <div class="form-field">
+                        <i class="ri-phone-line"></i>
+                        <input type="tel" id="customerPhone" placeholder="Enter phone number">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Company</label>
+                    <div class="form-field">
+                        <i class="ri-building-line"></i>
+                        <input type="text" id="customerCompany" placeholder="Enter company name">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelCustomerBtn" class="btn btn-outline">Cancel</button>
+                <button id="saveCustomerBtn" class="btn btn-primary">Save Customer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Note Modal -->
+    <div class="modal hidden" id="addNoteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Note</h2>
+                <button class="btn-icon" id="closeNoteModal">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Note Content</label>
+                    <textarea id="noteContent" rows="4" placeholder="Enter your note here..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelNoteBtn" class="btn btn-outline">Cancel</button>
+                <button id="saveNoteBtn" class="btn btn-primary">Save Note</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="modalBackdrop"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

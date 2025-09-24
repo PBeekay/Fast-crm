@@ -1,4 +1,3 @@
-# Gerekli kütüphaneleri import ediyoruz
 from pydantic import BaseModel, EmailStr  # Veri doğrulama ve e-posta formatı için
 from typing import Optional, List  # Tip belirteçleri için
 from datetime import datetime  # Tarih ve zaman işlemleri için

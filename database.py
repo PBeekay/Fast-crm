@@ -1,4 +1,3 @@
-# Gerekli kütüphaneleri import ediyoruz
 from sqlalchemy import create_engine  # Veritabanı motoru oluşturmak için
 from sqlalchemy.orm import sessionmaker  # Veritabanı oturumu oluşturmak için
 import os  # Ortam değişkenleri için

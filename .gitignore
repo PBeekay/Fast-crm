@@ -1,32 +1,71 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
+*.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 *.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Virtual environment
+# Virtual Environment
 venv/
-.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
-# Environment files
+# Environment variables
 .env
-.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Databases / local files
-crm.db
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
-# IDE/editor
+# Logs
+logs/
+*.log
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# pytest / coverage
-.pytest_cache/
-.coverage
-coverage/
-
-# OS files
-Thumbs.db
+# OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Test files
+test_*.py
+*_test.py

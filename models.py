@@ -1,4 +1,3 @@
-# Gerekli kütüphaneleri import ediyoruz
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, func  # Veritabanı sütun türleri ve fonksiyonlar
 from sqlalchemy.ext.declarative import declarative_base  # Model taban sınıfı için
 from sqlalchemy.orm import relationship  # Tablolar arası ilişkiler için

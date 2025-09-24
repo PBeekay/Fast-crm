@@ -1,4 +1,3 @@
-# Gerekli kütüphaneleri import ediyoruz
 from datetime import datetime, timedelta  # Tarih ve zaman işlemleri için
 from typing import Optional  # Tip belirteçleri için
 from jose import JWTError, jwt  # JWT token işlemleri için
