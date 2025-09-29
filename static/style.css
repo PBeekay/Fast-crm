@@ -312,6 +312,25 @@ textarea {
     border-top: 1px solid var(--gray-200);
 }
 
+.logout-btn {
+    color: var(--danger) !important;
+    border: 1px solid var(--gray-200);
+    background: var(--gray-50);
+    transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+    background: var(--danger) !important;
+    color: white !important;
+    border-color: var(--danger);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.logout-btn i {
+    color: inherit;
+}
+
 /* Main Content */
 .main-content {
     margin-left: var(--sidebar-width);

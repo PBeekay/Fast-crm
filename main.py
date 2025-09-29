@@ -63,6 +63,7 @@ async def read_register():
     """Kayıt sayfası"""
     return FileResponse("static/register.html")
 
+
 # Veritabanı bağımlılığı - her istek için yeni oturum oluştur
 def get_db():
     db = SessionLocal()  # Yeni veritabanı oturumu oluştur
@@ -140,6 +141,12 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 def read_me(current_user: models.User = Depends(get_current_user)):
     """Mevcut kullanıcı bilgilerini getirir"""
     return current_user  # Giriş yapmış kullanıcıyı döndür
+
+@app.post("/api/logout")
+def logout(current_user: models.User = Depends(get_current_user)):
+    """Kullanıcı çıkışı - token geçersizleştirme için"""
+    logger.info(f"🚪 User logout: {current_user.email} (ID: {current_user.id})")
+    return {"message": "Logged out successfully"}
 
 # --- Müşteri Endpoint'leri ---
 @app.post("/api/customers", response_model=schemas.CustomerOut)

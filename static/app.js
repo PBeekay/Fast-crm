@@ -66,7 +66,6 @@ const elements = {
     email: document.getElementById('email'),
     password: document.getElementById('password'),
     loginBtn: document.getElementById('loginBtn'),
-    registerBtn: document.getElementById('registerBtn'),
     logoutBtn: document.getElementById('logoutBtn'),
     customersTab: document.getElementById('customersTab'),
     notesTab: document.getElementById('notesTab'),
@@ -181,18 +180,67 @@ async function register(email, password) {
     }
 }
 
-function logout() {
-    token = null;
-    localStorage.removeItem('token');
-    showLoginWindow();
+async function logout() {
+    try {
+        // Call backend logout endpoint if token exists
+        if (token) {
+            try {
+                await fetchAPI('/api/logout', {
+                    method: 'POST'
+                });
+            } catch (error) {
+                // Ignore backend logout errors, continue with client-side logout
+                console.warn('Backend logout failed:', error);
+            }
+        }
+    } catch (error) {
+        console.warn('Logout API call failed:', error);
+    } finally {
+        // Clear all user data
+        token = null;
+        currentUser = null;
+        localStorage.removeItem('token');
+        
+        // Clear any form data
+        if (elements.email) elements.email.value = '';
+        if (elements.password) elements.password.value = '';
+        if (elements.loginError) elements.loginError.textContent = '';
+        
+        // Reset UI state
+        showLoginWindow();
+        
+        // Show logout confirmation
+        showNotification('Logged out successfully', 'success');
+    }
 }
 
 // UI Functions
 function showLoginWindow() {
+    // Hide CRM window and show login window
     elements.loginWindow.classList.remove('hidden');
     elements.crmWindow.classList.add('hidden');
+    
+    // Hide all modals
     elements.addCustomerModal.classList.add('hidden');
     elements.addNoteModal.classList.add('hidden');
+    modalBackdrop.classList.add('hidden');
+    
+    // Reset form fields
+    if (elements.email) elements.email.value = '';
+    if (elements.password) elements.password.value = '';
+    if (elements.loginError) elements.loginError.textContent = '';
+    
+    // Clear any data lists
+    if (elements.customersList) elements.customersList.innerHTML = '';
+    if (elements.notesList) elements.notesList.innerHTML = '';
+    
+    // Reset customer count
+    const customerCountEl = document.getElementById('customerCount');
+    if (customerCountEl) customerCountEl.textContent = '0';
+    
+    // Reset note count
+    const noteCountEl = document.getElementById('noteCount');
+    if (noteCountEl) noteCountEl.textContent = '0';
 }
 
 function showCRMWindow() {
@@ -465,63 +513,107 @@ async function deleteNote(customerId, noteId) {
 }
 
 // Event Listeners
-elements.loginBtn.addEventListener('click', () => {
-    login(elements.email.value, elements.password.value);
-});
-
-elements.registerBtn.addEventListener('click', () => {
-    register(elements.email.value, elements.password.value);
-});
-
-elements.logoutBtn.addEventListener('click', logout);
-
-elements.customersTab.addEventListener('click', showCustomersTab);
-elements.notesTab.addEventListener('click', showNotesTab);
-
-elements.addCustomerBtn.addEventListener('click', () => {
-    // Clear form
-    elements.customerName.value = '';
-    elements.customerEmail.value = '';
-    elements.customerPhone.value = '';
-    elements.customerCompany.value = '';
-    
-    // Show modal
-    elements.addCustomerModal.classList.remove('hidden');
-    modalBackdrop.classList.remove('hidden');
-});
-
-elements.addNoteBtn.addEventListener('click', () => {
-    if (elements.customerSelect.value) {
-        elements.addNoteModal.classList.remove('hidden');
-        modalBackdrop.classList.remove('hidden');
-    } else {
-        alert('Please select a customer first');
+function setupEventListeners() {
+    if (elements.loginBtn) {
+        elements.loginBtn.addEventListener('click', () => {
+            login(elements.email.value, elements.password.value);
+        });
     }
-});
 
-document.getElementById('saveCustomerBtn').addEventListener('click', addCustomer);
-document.getElementById('cancelCustomerBtn').addEventListener('click', () => {
-    elements.addCustomerModal.classList.add('hidden');
-    modalBackdrop.classList.add('hidden');
-});
+    if (elements.logoutBtn) {
+        elements.logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            try {
+                // Ask for confirmation before logout
+                if (confirm('Are you sure you want to logout?')) {
+                    logout();
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                showNotification('Error during logout', 'error');
+            }
+        });
+    }
 
-document.getElementById('saveNoteBtn').addEventListener('click', addNote);
-document.getElementById('cancelNoteBtn').addEventListener('click', () => {
-    elements.addNoteModal.classList.add('hidden');
-    modalBackdrop.classList.add('hidden');
-});
+    // Other event listeners
+    if (elements.customersTab) {
+        elements.customersTab.addEventListener('click', showCustomersTab);
+    }
+    if (elements.notesTab) {
+        elements.notesTab.addEventListener('click', showNotesTab);
+    }
 
-document.getElementById('closeCustomerModal').addEventListener('click', () => {
-    elements.addCustomerModal.classList.add('hidden');
-    modalBackdrop.classList.add('hidden');
-});
+    if (elements.addCustomerBtn) {
+        elements.addCustomerBtn.addEventListener('click', () => {
+            // Clear form
+            elements.customerName.value = '';
+            elements.customerEmail.value = '';
+            elements.customerPhone.value = '';
+            elements.customerCompany.value = '';
+            
+            // Show modal
+            elements.addCustomerModal.classList.remove('hidden');
+            modalBackdrop.classList.remove('hidden');
+        });
+    }
 
-document.getElementById('closeNoteModal').addEventListener('click', () => {
-    elements.addNoteModal.classList.add('hidden');
-    modalBackdrop.classList.add('hidden');
-});
+    if (elements.addNoteBtn) {
+        elements.addNoteBtn.addEventListener('click', () => {
+            if (elements.customerSelect.value) {
+                elements.addNoteModal.classList.remove('hidden');
+                modalBackdrop.classList.remove('hidden');
+            } else {
+                alert('Please select a customer first');
+            }
+        });
+    }
 
-elements.customerSelect.addEventListener('change', loadNotes);
+    const saveCustomerBtn = document.getElementById('saveCustomerBtn');
+    if (saveCustomerBtn) {
+        saveCustomerBtn.addEventListener('click', addCustomer);
+    }
+
+    const cancelCustomerBtn = document.getElementById('cancelCustomerBtn');
+    if (cancelCustomerBtn) {
+        cancelCustomerBtn.addEventListener('click', () => {
+            elements.addCustomerModal.classList.add('hidden');
+            modalBackdrop.classList.add('hidden');
+        });
+    }
+
+    const saveNoteBtn = document.getElementById('saveNoteBtn');
+    if (saveNoteBtn) {
+        saveNoteBtn.addEventListener('click', addNote);
+    }
+
+    const cancelNoteBtn = document.getElementById('cancelNoteBtn');
+    if (cancelNoteBtn) {
+        cancelNoteBtn.addEventListener('click', () => {
+            elements.addNoteModal.classList.add('hidden');
+            modalBackdrop.classList.add('hidden');
+        });
+    }
+
+    const closeCustomerModal = document.getElementById('closeCustomerModal');
+    if (closeCustomerModal) {
+        closeCustomerModal.addEventListener('click', () => {
+            elements.addCustomerModal.classList.add('hidden');
+            modalBackdrop.classList.add('hidden');
+        });
+    }
+
+    const closeNoteModal = document.getElementById('closeNoteModal');
+    if (closeNoteModal) {
+        closeNoteModal.addEventListener('click', () => {
+            elements.addNoteModal.classList.add('hidden');
+            modalBackdrop.classList.add('hidden');
+        });
+    }
+
+    if (elements.customerSelect) {
+        elements.customerSelect.addEventListener('change', loadNotes);
+    }
+}
 
 // Check for registration success message
 function checkRegistrationSuccess() {
@@ -556,47 +648,40 @@ function showNotification(message, type = 'info') {
 }
 
 
-// Test function for debugging
-window.testAddCustomer = async function() {
-    console.log('Testing add customer API...');
-    console.log('Current token:', token);
-    
-    const testData = {
-        name: 'Test Customer',
-        email: 'test@example.com',
-        phone: '123-456-7890',
-        company: 'Test Company'
-    };
-    
-    try {
-        const response = await fetch('/api/customers', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(testData)
-        });
-        
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('Success:', data);
-        } else {
-            const errorText = await response.text();
-            console.log('Error:', errorText);
-        }
-    } catch (error) {
-        console.log('Exception:', error);
-    }
-};
 
-// Initialize
-if (token) {
-    showCRMWindow();
-} else {
-    showLoginWindow();
-    checkRegistrationSuccess();
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // Ctrl+Q for logout
+    if (e.ctrlKey && e.key === 'q') {
+        e.preventDefault();
+        if (elements.logoutBtn && !elements.logoutBtn.closest('.hidden')) {
+            elements.logoutBtn.click();
+        }
+    }
+});
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up event listeners
+    setupEventListeners();
+
+    if (token) {
+        showCRMWindow();
+    } else {
+        showLoginWindow();
+        checkRegistrationSuccess();
+    }
+});
+
+// Also initialize immediately in case DOM is already loaded
+if (document.readyState !== 'loading') {
+    // Set up event listeners
+    setupEventListeners();
+
+    if (token) {
+        showCRMWindow();
+    } else {
+        showLoginWindow();
+        checkRegistrationSuccess();
+    }
 }
