@@ -1,147 +1,148 @@
 # FastCRM
 
-Modern ve hızlı bir FastAPI tabanlı CRM MVP uygulaması. Kullanıcı yönetimi, müşteri takibi ve not sistemi ile tam özellikli bir CRM çözümü.
+A modern and fast FastAPI-based CRM MVP application. Complete CRM solution with user management, customer tracking, and note system.
 
-## ✨ Özellikler
+## ✨ Features
 
-### 🔐 Kimlik Doğrulama
-- JWT tabanlı güvenli kullanıcı kaydı ve girişi
-- Şifre hashleme (bcrypt)
-- Token tabanlı API erişimi
+### 🔐 Authentication
+- JWT-based secure user registration and login
+- Password hashing (bcrypt)
+- Token-based API access
 
-### 👥 Müşteri Yönetimi
-- Müşteri oluşturma, listeleme, görüntüleme ve silme
-- Müşteri bilgileri (ad, email, telefon, şirket)
-- Kullanıcı bazlı müşteri izolasyonu
+### 👥 Customer Management
+- Create, list, view, and delete customers
+- Customer information (name, email, phone, company)
+- User-based customer isolation
 
-### 📝 Not Sistemi
-- Müşterilere not ekleme ve listeleme
-- Not silme işlemleri
-- Zaman damgalı not takibi
+### 📝 Note System
+- Add and list notes for customers
+- Delete note operations
+- Timestamped note tracking
 
 ### 🎨 Modern Frontend
-- Responsive ve modern kullanıcı arayüzü
-- Tek sayfa uygulaması (SPA)
-- Gerçek zamanlı veri güncellemeleri
+- Responsive and modern user interface
+- Single Page Application (SPA)
+- Real-time data updates
 
-### 📊 Logging ve Monitoring
-- Detaylı HTTP istek/yanıt logları
-- İşlem süreleri ve performans metrikleri
-- Hata takibi ve güvenlik logları
+### 📊 Logging and Monitoring
+- Detailed HTTP request/response logs
+- Processing times and performance metrics
+- Error tracking and security logs
 
-## 🚀 Hızlı Başlangıç
+## 🚀 Quick Start
 
-### Gereksinimler
-- Python 3.10+ (3.13 önerilir)
+### Requirements
+- Python 3.10+ (3.13 recommended)
 - pip
 
-### Kurulum
+### Installation
 ```bash
-# Projeyi klonlayın
+# Clone the repository
 git clone <repository-url>
 cd fastcrm
 
-# Sanal ortam oluşturun (önerilir)
+# Create virtual environment (recommended)
 python -m venv venv
 
-# Sanal ortamı aktifleştirin
+# Activate virtual environment
 # Windows:
 venv\Scripts\activate
 # Linux/Mac:
 source venv/bin/activate
 
-# Bağımlılıkları yükleyin
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### Ortam Değişkenleri
-`.env` dosyası oluşturun:
+### Environment Variables
+Create `.env` file:
 ```bash
 cp env.example .env
 ```
 
-`.env` dosyasını düzenleyin:
+Edit `.env` file:
 ```env
 CRM_SECRET_KEY=your_very_secure_secret_key_here
 DATABASE_URL=sqlite:///./crm.db
 ```
 
-### Çalıştırma
+### Running the Application
 ```bash
-# Geliştirme modu
+# Development mode
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Uygulama çalıştığında:
+When the application is running:
 - **Frontend**: http://localhost:8000/
 - **API Docs**: http://localhost:8000/docs
 - **Register**: http://localhost:8000/register
 
-## 📚 API Dokümantasyonu
+## 📚 API Documentation
 
-### Kimlik Doğrulama
-- `POST /api/register` - Kullanıcı kaydı
-- `POST /api/token` - Giriş yapma (JWT token al)
-- `GET /api/me` - Mevcut kullanıcı bilgileri
+### Authentication
+- `POST /api/register` - User registration
+- `POST /api/token` - Login (get JWT token)
+- `GET /api/me` - Current user information
+- `POST /api/logout` - User logout
 
-### Müşteri İşlemleri
-- `POST /api/customers` - Yeni müşteri oluştur
-- `GET /api/customers` - Müşterileri listele
-- `GET /api/customers/{id}` - Belirli müşteriyi getir
-- `DELETE /api/customers/{id}` - Müşteriyi sil
+### Customer Operations
+- `POST /api/customers` - Create new customer
+- `GET /api/customers` - List customers
+- `GET /api/customers/{id}` - Get specific customer
+- `DELETE /api/customers/{id}` - Delete customer
 
-### Not İşlemleri
-- `POST /api/customers/{id}/notes` - Müşteriye not ekle
-- `GET /api/customers/{id}/notes` - Müşteri notlarını listele
-- `DELETE /api/customers/{id}/notes/{note_id}` - Notu sil
+### Note Operations
+- `POST /api/customers/{id}/notes` - Add note to customer
+- `GET /api/customers/{id}/notes` - List customer notes
+- `DELETE /api/customers/{id}/notes/{note_id}` - Delete note
 
-## 🏗️ Proje Yapısı
+## 🏗️ Project Structure
 
 ```
 fastcrm/
-├── main.py              # Ana FastAPI uygulaması
-├── models.py            # SQLAlchemy veritabanı modelleri
-├── schemas.py           # Pydantic şemaları
-├── database.py          # Veritabanı bağlantısı
-├── auth.py              # Kimlik doğrulama fonksiyonları
-├── requirements.txt     # Python bağımlılıkları
-├── env.example          # Ortam değişkenleri örneği
-├── .gitignore           # Git ignore kuralları
-├── README.md            # Bu dosya
-└── static/              # Frontend dosyaları
-    ├── index.html       # Ana sayfa
-    ├── register.html    # Kayıt sayfası
-    ├── app.js           # Ana JavaScript
-    ├── register.js      # Kayıt JavaScript
-    └── style.css        # CSS stilleri
+├── main.py              # Main FastAPI application
+├── models.py            # SQLAlchemy database models
+├── schemas.py           # Pydantic schemas
+├── database.py          # Database connection
+├── auth.py              # Authentication functions
+├── requirements.txt     # Python dependencies
+├── env.example          # Environment variables example
+├── .gitignore           # Git ignore rules
+├── README.md            # This file
+└── static/              # Frontend files
+    ├── index.html       # Main page
+    ├── register.html    # Registration page
+    ├── app.js           # Main JavaScript
+    ├── register.js      # Registration JavaScript
+    └── style.css        # CSS styles
 ```
 
-## 🔧 Geliştirme
+## 🔧 Development
 
-### Veritabanı
-- Varsayılan: SQLite (`crm.db`)
-- PostgreSQL, MySQL vb. için `DATABASE_URL` değiştirin
-- Otomatik tablo oluşturma
+### Database
+- Default: SQLite (`crm.db`)
+- For PostgreSQL, MySQL etc., change `DATABASE_URL`
+- Automatic table creation
 
 ### Logging
-- Tüm HTTP istekleri loglanır
-- İşlem süreleri ve durum kodları
-- Emoji tabanlı görsel loglar
+- All HTTP requests are logged
+- Processing times and status codes
+- Emoji-based visual logs
 
-### Güvenlik
-- JWT token tabanlı kimlik doğrulama
-- Şifre hashleme (bcrypt)
-- Kullanıcı bazlı veri izolasyonu
+### Security
+- JWT token-based authentication
+- Password hashing (bcrypt)
+- User-based data isolation
 
 ## 🚀 Deployment
 
-### Production Ayarları
-1. `CRM_SECRET_KEY` değerini güçlü bir değerle değiştirin
-2. `DATABASE_URL` değerini production veritabanına ayarlayın
-3. HTTPS kullanın
-4. Environment variables ile konfigürasyonu yönetin
+### Production Settings
+1. Change `CRM_SECRET_KEY` to a strong value
+2. Set `DATABASE_URL` to production database
+3. Use HTTPS
+4. Manage configuration with environment variables
 
-### Docker (Opsiyonel)
+### Docker (Optional)
 ```dockerfile
 FROM python:3.11-slim
 WORKDIR /app
@@ -151,19 +152,18 @@ COPY . .
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-## 📝 Lisans
+## 📝 License
 
-Bu proje MIT lisansı altında lisanslanmıştır.
+This project is licensed under the MIT License.
 
-## 🤝 Katkıda Bulunma
+## 🤝 Contributing
 
-1. Fork yapın
-2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Commit yapın (`git commit -m 'Add amazing feature'`)
-4. Push yapın (`git push origin feature/amazing-feature`)
-5. Pull Request oluşturun
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## 📞 İletişim
+## 📞 Contact
 
-Sorularınız için issue açabilir veya iletişime geçebilirsiniz.
-
+For questions, please open an issue or contact us.
