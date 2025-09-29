@@ -6,7 +6,7 @@
     <title>FastCRM | Modern Customer Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2.0">
 </head>
 <body>
     <!-- Login Screen -->
@@ -72,6 +72,10 @@
             </nav>
 
             <div class="sidebar-footer">
+                <button class="nav-item theme-toggle" id="themeToggle" title="Toggle Dark/Light Theme (Ctrl+T)">
+                    <i class="ri-sun-line" id="themeIcon"></i>
+                    <span id="themeText">Light Mode</span>
+                </button>
                 <button class="nav-item logout-btn" id="logoutBtn" title="Logout (Ctrl+Q)">
                     <i class="ri-logout-box-line"></i>
                     <span>Logout</span>
@@ -233,6 +237,6 @@
 
     <div class="modal-backdrop hidden" id="modalBackdrop"></div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=2.0"></script>
 </body>
 </html>

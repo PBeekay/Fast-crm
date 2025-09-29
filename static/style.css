@@ -1,6 +1,6 @@
 /* Base Styles */
 :root {
-    /* Colors */
+    /* Light Theme Colors */
     --primary: #4f46e5;
     --primary-dark: #4338ca;
     --primary-light: #818cf8;
@@ -17,6 +17,17 @@
     --gray-700: #334155;
     --gray-800: #1e293b;
     --gray-900: #0f172a;
+    
+    /* Theme Colors */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --border-color: #e2e8f0;
+    --shadow: rgba(0, 0, 0, 0.1);
+    --shadow-lg: rgba(0, 0, 0, 0.15);
 
     /* Spacing */
     --spacing-xs: 0.25rem;
@@ -33,6 +44,19 @@
     --border-radius-sm: 8px;
 }
 
+/* Dark Theme */
+[data-theme="dark"] {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --border-color: #334155;
+    --shadow: rgba(0, 0, 0, 0.3);
+    --shadow-lg: rgba(0, 0, 0, 0.4);
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -41,9 +65,10 @@
 
 body {
     font-family: 'Poppins', sans-serif;
-    background-color: var(--gray-100);
-    color: var(--gray-800);
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
     line-height: 1.5;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Utility Classes */
@@ -252,12 +277,13 @@ textarea {
 /* Sidebar */
 .sidebar {
     width: var(--sidebar-width);
-    background: white;
-    border-right: 1px solid var(--gray-200);
+    background: var(--bg-primary);
+    border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     position: fixed;
     height: 100vh;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .sidebar-brand {
@@ -267,8 +293,9 @@ textarea {
     gap: var(--spacing-md);
     font-size: 20px;
     font-weight: 600;
-    color: var(--gray-900);
-    border-bottom: 1px solid var(--gray-200);
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    transition: color 0.3s ease, border-color 0.3s ease;
 }
 
 .sidebar-brand i {
@@ -289,7 +316,7 @@ textarea {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--gray-600);
+    color: var(--text-secondary);
     border-radius: var(--border-radius);
     cursor: pointer;
     transition: all 0.3s ease;
@@ -298,8 +325,8 @@ textarea {
 }
 
 .nav-item:hover {
-    background: var(--gray-100);
-    color: var(--gray-900);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
 }
 
 .nav-item.active {
@@ -309,7 +336,8 @@ textarea {
 
 .sidebar-footer {
     padding: var(--spacing-md);
-    border-top: 1px solid var(--gray-200);
+    border-top: 1px solid var(--border-color);
+    transition: border-color 0.3s ease;
 }
 
 .logout-btn {
@@ -331,11 +359,33 @@ textarea {
     color: inherit;
 }
 
+.theme-toggle {
+    color: var(--warning) !important;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    transition: all 0.2s ease;
+    margin-bottom: var(--spacing-sm);
+}
+
+.theme-toggle:hover {
+    background: var(--warning) !important;
+    color: white !important;
+    border-color: var(--warning);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.theme-toggle i {
+    color: inherit;
+}
+
 /* Main Content */
 .main-content {
     margin-left: var(--sidebar-width);
     padding: var(--spacing-xl);
     width: calc(100% - var(--sidebar-width));
+    background-color: var(--bg-secondary);
+    transition: background-color 0.3s ease;
 }
 
 /* Page Header */

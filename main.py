@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException, status  # FastAPI ve bağımlılık yönetimi
+from fastapi import FastAPI, Depends, HTTPException, status, Request  # FastAPI ve bağımlılık yönetimi
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer  # OAuth2 kimlik doğrulama
 from fastapi.staticfiles import StaticFiles  # Statik dosya servisi için
-from fastapi.responses import FileResponse  # Dosya yanıtı için
+from fastapi.responses import FileResponse, JSONResponse  # Dosya yanıtı için
+from fastapi.middleware.cors import CORSMiddleware  # CORS middleware
 from sqlalchemy.orm import Session  # Veritabanı oturumu
 from typing import List  # Tip belirteçleri
 import models, schemas  # Veritabanı modelleri ve şemalar
@@ -9,6 +10,7 @@ from database import SessionLocal, engine  # Veritabanı bağlantısı
 from auth import get_password_hash, verify_password, create_access_token, decode_access_token  # Kimlik doğrulama fonksiyonları
 import logging  # Logging için
 import time  # Zaman ölçümü için
+import traceback  # Error tracing
 
 # Logging konfigürasyonu
 logging.basicConfig(
@@ -25,6 +27,15 @@ models.Base.metadata.create_all(bind=engine)
 
 # FastAPI uygulamasını oluştur
 app = FastAPI(title="Simple CRM MVP")
+
+# CORS middleware - Allow requests from other devices
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Request/Response logging middleware
 @app.middleware("http")
@@ -46,8 +57,39 @@ async def log_requests(request, call_next):
     
     return response
 
+# Global exception handler to ensure JSON responses
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler to ensure all errors return JSON"""
+    logger.error(f"❌ Unhandled exception: {str(exc)}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "error": str(exc),
+            "path": str(request.url)
+        }
+    )
+
 # Statik dosyaları servis et
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Cache-busting middleware for development
+@app.middleware("http")
+async def add_cache_control_header(request, call_next):
+    """Add cache control headers to prevent caching during development"""
+    response = await call_next(request)
+    
+    # Add cache-busting headers for static files
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        response.headers["ETag"] = str(int(time.time()))  # Dynamic ETag
+    
+    return response
 
 # OAuth2 şemasını tanımla - token URL'i belirt
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
@@ -62,6 +104,15 @@ async def read_root():
 async def read_register():
     """Kayıt sayfası"""
     return FileResponse("static/register.html")
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for debugging"""
+    return {
+        "status": "healthy",
+        "message": "FastCRM API is running",
+        "timestamp": time.time()
+    }
 
 
 # Veritabanı bağımlılığı - her istek için yeni oturum oluştur
@@ -146,7 +197,7 @@ def read_me(current_user: models.User = Depends(get_current_user)):
 def logout(current_user: models.User = Depends(get_current_user)):
     """Kullanıcı çıkışı - token geçersizleştirme için"""
     logger.info(f"🚪 User logout: {current_user.email} (ID: {current_user.id})")
-    return {"message": "Logged out successfully"}
+    return {"message": "Logged out successfully", "status": "success"}
 
 # --- Müşteri Endpoint'leri ---
 @app.post("/api/customers", response_model=schemas.CustomerOut)

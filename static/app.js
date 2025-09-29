@@ -1,6 +1,7 @@
 // Global state
 let token = localStorage.getItem('token'); // Tokeni localStorage'dan al
 let currentUser = null;
+let currentTheme = localStorage.getItem('theme') || 'light'; // Theme state
 
 // DOM Elements
 const modalBackdrop = document.getElementById('modalBackdrop'); // Modal arka planı
@@ -67,6 +68,9 @@ const elements = {
     password: document.getElementById('password'),
     loginBtn: document.getElementById('loginBtn'),
     logoutBtn: document.getElementById('logoutBtn'),
+    themeToggle: document.getElementById('themeToggle'),
+    themeIcon: document.getElementById('themeIcon'),
+    themeText: document.getElementById('themeText'),
     customersTab: document.getElementById('customersTab'),
     notesTab: document.getElementById('notesTab'),
     customersSection: document.getElementById('customersSection'),
@@ -116,16 +120,41 @@ async function fetchAPI(endpoint, options = {}) {
 
         if (!response.ok) {
             let message = response.statusText;
+            let responseText = '';
+            
             try {
-                const data = await response.json();
+                // Try to get response text first to see what we're dealing with
+                responseText = await response.text();
+                console.log('Response text:', responseText);
+                
+                // Try to parse as JSON
+                const data = JSON.parse(responseText);
                 if (data && (data.detail || data.message)) {
                     message = data.detail || data.message;
                 }
-            } catch (_) {}
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError);
+                console.error('Response was not JSON:', responseText);
+                
+                // If it's HTML (like an error page), provide a better message
+                if (responseText.includes('<html>') || responseText.includes('<!DOCTYPE')) {
+                    message = `Server returned HTML instead of JSON (Status: ${response.status}). This might be a server error or authentication issue.`;
+                } else {
+                    message = `Invalid JSON response (Status: ${response.status}): ${responseText.substring(0, 100)}...`;
+                }
+            }
             throw new Error(message);
         }
 
-        return await response.json();
+        // Try to parse JSON response
+        try {
+            return await response.json();
+        } catch (jsonError) {
+            console.error('JSON parse error in successful response:', jsonError);
+            const responseText = await response.text();
+            console.error('Response text:', responseText);
+            throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}...`);
+        }
     } catch (error) {
         console.error('API Error:', error);
         showNotification(error.message || 'Unexpected error', 'error');
@@ -197,9 +226,9 @@ async function logout() {
         console.warn('Logout API call failed:', error);
     } finally {
         // Clear all user data
-        token = null;
+    token = null;
         currentUser = null;
-        localStorage.removeItem('token');
+    localStorage.removeItem('token');
         
         // Clear any form data
         if (elements.email) elements.email.value = '';
@@ -207,10 +236,37 @@ async function logout() {
         if (elements.loginError) elements.loginError.textContent = '';
         
         // Reset UI state
-        showLoginWindow();
+    showLoginWindow();
         
         // Show logout confirmation
         showNotification('Logged out successfully', 'success');
+    }
+}
+
+// Theme Functions
+function initTheme() {
+    // Apply saved theme
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    updateThemeUI();
+}
+
+function toggleTheme() {
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    localStorage.setItem('theme', currentTheme);
+    updateThemeUI();
+    showNotification(`Switched to ${currentTheme} mode`, 'success');
+}
+
+function updateThemeUI() {
+    if (elements.themeIcon && elements.themeText) {
+        if (currentTheme === 'dark') {
+            elements.themeIcon.className = 'ri-moon-line';
+            elements.themeText.textContent = 'Dark Mode';
+        } else {
+            elements.themeIcon.className = 'ri-sun-line';
+            elements.themeText.textContent = 'Light Mode';
+        }
     }
 }
 
@@ -515,9 +571,9 @@ async function deleteNote(customerId, noteId) {
 // Event Listeners
 function setupEventListeners() {
     if (elements.loginBtn) {
-        elements.loginBtn.addEventListener('click', () => {
-            login(elements.email.value, elements.password.value);
-        });
+elements.loginBtn.addEventListener('click', () => {
+    login(elements.email.value, elements.password.value);
+});
     }
 
     if (elements.logoutBtn) {
@@ -535,37 +591,44 @@ function setupEventListeners() {
         });
     }
 
+    if (elements.themeToggle) {
+        elements.themeToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            toggleTheme();
+        });
+    }
+
     // Other event listeners
     if (elements.customersTab) {
-        elements.customersTab.addEventListener('click', showCustomersTab);
+elements.customersTab.addEventListener('click', showCustomersTab);
     }
     if (elements.notesTab) {
-        elements.notesTab.addEventListener('click', showNotesTab);
+elements.notesTab.addEventListener('click', showNotesTab);
     }
 
     if (elements.addCustomerBtn) {
-        elements.addCustomerBtn.addEventListener('click', () => {
-            // Clear form
-            elements.customerName.value = '';
-            elements.customerEmail.value = '';
-            elements.customerPhone.value = '';
-            elements.customerCompany.value = '';
-            
-            // Show modal
-            elements.addCustomerModal.classList.remove('hidden');
-            modalBackdrop.classList.remove('hidden');
-        });
+elements.addCustomerBtn.addEventListener('click', () => {
+    // Clear form
+    elements.customerName.value = '';
+    elements.customerEmail.value = '';
+    elements.customerPhone.value = '';
+    elements.customerCompany.value = '';
+    
+    // Show modal
+    elements.addCustomerModal.classList.remove('hidden');
+    modalBackdrop.classList.remove('hidden');
+});
     }
 
     if (elements.addNoteBtn) {
-        elements.addNoteBtn.addEventListener('click', () => {
-            if (elements.customerSelect.value) {
-                elements.addNoteModal.classList.remove('hidden');
-                modalBackdrop.classList.remove('hidden');
-            } else {
-                alert('Please select a customer first');
-            }
-        });
+elements.addNoteBtn.addEventListener('click', () => {
+    if (elements.customerSelect.value) {
+        elements.addNoteModal.classList.remove('hidden');
+        modalBackdrop.classList.remove('hidden');
+    } else {
+        alert('Please select a customer first');
+    }
+});
     }
 
     const saveCustomerBtn = document.getElementById('saveCustomerBtn');
@@ -576,9 +639,9 @@ function setupEventListeners() {
     const cancelCustomerBtn = document.getElementById('cancelCustomerBtn');
     if (cancelCustomerBtn) {
         cancelCustomerBtn.addEventListener('click', () => {
-            elements.addCustomerModal.classList.add('hidden');
-            modalBackdrop.classList.add('hidden');
-        });
+    elements.addCustomerModal.classList.add('hidden');
+    modalBackdrop.classList.add('hidden');
+});
     }
 
     const saveNoteBtn = document.getElementById('saveNoteBtn');
@@ -589,29 +652,29 @@ function setupEventListeners() {
     const cancelNoteBtn = document.getElementById('cancelNoteBtn');
     if (cancelNoteBtn) {
         cancelNoteBtn.addEventListener('click', () => {
-            elements.addNoteModal.classList.add('hidden');
-            modalBackdrop.classList.add('hidden');
-        });
+    elements.addNoteModal.classList.add('hidden');
+    modalBackdrop.classList.add('hidden');
+});
     }
 
     const closeCustomerModal = document.getElementById('closeCustomerModal');
     if (closeCustomerModal) {
         closeCustomerModal.addEventListener('click', () => {
-            elements.addCustomerModal.classList.add('hidden');
-            modalBackdrop.classList.add('hidden');
-        });
+    elements.addCustomerModal.classList.add('hidden');
+    modalBackdrop.classList.add('hidden');
+});
     }
 
     const closeNoteModal = document.getElementById('closeNoteModal');
     if (closeNoteModal) {
         closeNoteModal.addEventListener('click', () => {
-            elements.addNoteModal.classList.add('hidden');
-            modalBackdrop.classList.add('hidden');
-        });
+    elements.addNoteModal.classList.add('hidden');
+    modalBackdrop.classList.add('hidden');
+});
     }
 
     if (elements.customerSelect) {
-        elements.customerSelect.addEventListener('change', loadNotes);
+elements.customerSelect.addEventListener('change', loadNotes);
     }
 }
 
@@ -658,16 +721,27 @@ document.addEventListener('keydown', (e) => {
             elements.logoutBtn.click();
         }
     }
+    
+    // Ctrl+T for theme toggle
+    if (e.ctrlKey && e.key === 't') {
+        e.preventDefault();
+        if (elements.themeToggle && !elements.themeToggle.closest('.hidden')) {
+            elements.themeToggle.click();
+        }
+    }
 });
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize theme
+    initTheme();
+    
     // Set up event listeners
     setupEventListeners();
 
     if (token) {
         showCRMWindow();
-    } else {
+        } else {
         showLoginWindow();
         checkRegistrationSuccess();
     }
@@ -675,6 +749,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Also initialize immediately in case DOM is already loaded
 if (document.readyState !== 'loading') {
+    // Initialize theme
+    initTheme();
+    
     // Set up event listeners
     setupEventListeners();
 
