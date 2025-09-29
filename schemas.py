@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr  # Veri doğrulama ve e-posta formatı için
+from pydantic import BaseModel, EmailStr, validator  # Veri doğrulama ve e-posta formatı için
 from typing import Optional, List  # Tip belirteçleri için
 from datetime import datetime  # Tarih ve zaman işlemleri için
 
@@ -8,6 +8,15 @@ class UserCreate(BaseModel):
     email: EmailStr  # E-posta adresi, doğrulanmış format
     password: str  # Şifre
     full_name: Optional[str] = None  # Tam ad, isteğe bağlı
+    
+    @validator('password')
+    def validate_password(cls, v):
+        """Şifre doğrulama - bcrypt 72 byte limiti için"""
+        if len(v.encode('utf-8')) > 72:
+            raise ValueError('Password cannot be longer than 72 characters due to security limitations')
+        if len(v) < 6:
+            raise ValueError('Password must be at least 6 characters long')
+        return v
 
 class UserOut(BaseModel):
     """Kullanıcı çıktı şeması - kullanıcı bilgilerini döndürmek için"""
