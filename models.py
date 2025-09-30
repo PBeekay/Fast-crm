@@ -16,6 +16,7 @@ class User(Base):
 
     # İlişkiler - bir kullanıcının birden fazla müşterisi olabilir
     customers = relationship("Customer", back_populates="owner")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")  # Refresh token'lar ile ilişki
 
 class Customer(Base):
     """Müşteri modeli - CRM müşterilerini temsil eder"""
@@ -45,3 +46,18 @@ class Note(Base):
 
     # İlişkiler
     customer = relationship("Customer", back_populates="notes")  # Müşteri ile ilişki
+
+class RefreshToken(Base):
+    """Refresh Token modeli - güvenli token yenileme için"""
+    __tablename__ = "refresh_tokens"  # Veritabanı tablo adı
+    id = Column(Integer, primary_key=True, index=True)  # Birincil anahtar, indeksli
+    token = Column(String, unique=True, index=True, nullable=False)  # Refresh token, benzersiz, indeksli
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Kullanıcı ID'si, yabancı anahtar
+    expires_at = Column(DateTime(timezone=True), nullable=False)  # Token son kullanma tarihi
+    is_active = Column(String, default="true", nullable=False)  # Token aktif mi (true/false string olarak)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # Oluşturulma tarihi
+    last_used_at = Column(DateTime(timezone=True), nullable=True)  # Son kullanım tarihi
+    device_info = Column(String, nullable=True)  # Cihaz bilgisi (opsiyonel)
+
+    # İlişkiler
+    user = relationship("User", back_populates="refresh_tokens")  # Kullanıcı ile ilişki

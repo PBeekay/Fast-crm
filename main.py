@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session  # Veritabanı oturumu
 from typing import List  # Tip belirteçleri
 import models, schemas  # Veritabanı modelleri ve şemalar
 from database import SessionLocal, engine  # Veritabanı bağlantısı
-from auth import get_password_hash, verify_password, create_access_token, decode_access_token  # Kimlik doğrulama fonksiyonları
+from auth import get_password_hash, verify_password, create_access_token, decode_access_token, create_token_pair, get_refresh_token_expire_time  # Kimlik doğrulama fonksiyonları
 import logging  # Logging için
 import time  # Zaman ölçümü için
 import traceback  # Error tracing
@@ -239,6 +239,48 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")  # 401 hatası
     return user  # Kullanıcıyı döndür
 
+# --- Refresh Token Yardımcı Fonksiyonları ---
+def create_refresh_token_db(db: Session, user_id: int, refresh_token: str, device_info: str = None):
+    """Veritabanında refresh token oluşturur"""
+    db_refresh_token = models.RefreshToken(
+        token=refresh_token,
+        user_id=user_id,
+        expires_at=get_refresh_token_expire_time(),
+        device_info=device_info
+    )
+    db.add(db_refresh_token)
+    db.commit()
+    db.refresh(db_refresh_token)
+    return db_refresh_token
+
+def get_refresh_token_db(db: Session, refresh_token: str):
+    """Veritabanından refresh token'ı alır"""
+    return db.query(models.RefreshToken).filter(
+        models.RefreshToken.token == refresh_token,
+        models.RefreshToken.is_active == "true"
+    ).first()
+
+def invalidate_refresh_token(db: Session, refresh_token: str):
+    """Refresh token'ı geçersiz kılar"""
+    db_token = get_refresh_token_db(db, refresh_token)
+    if db_token:
+        db_token.is_active = "false"
+        db.commit()
+    return db_token
+
+def cleanup_expired_tokens(db: Session):
+    """Süresi dolmuş token'ları temizler"""
+    from datetime import datetime
+    expired_tokens = db.query(models.RefreshToken).filter(
+        models.RefreshToken.expires_at < datetime.utcnow()
+    ).all()
+    
+    for token in expired_tokens:
+        db.delete(token)
+    
+    db.commit()
+    return len(expired_tokens)
+
 # --- API Endpoint'leri ---
 @app.post("/api/register", response_model=schemas.UserOut)
 def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -260,8 +302,8 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     return user  # Kullanıcıyı döndür
 
 @app.post("/api/token", response_model=schemas.Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Kullanıcı girişi - erişim token'ı oluşturur"""
+def login_for_access_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Kullanıcı girişi - access ve refresh token'ı oluşturur"""
     logger.info(f"🔐 Login attempt: {form_data.username}")
     
     user = authenticate_user(db, form_data.username, form_data.password)  # Kullanıcıyı doğrula
@@ -269,20 +311,138 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         logger.warning(f"❌ Login failed - Invalid credentials: {form_data.username}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")  # 401 hatası
     
-    access_token = create_access_token(data={"sub": str(user.id)})  # JWT token oluştur
+    # Token çifti oluştur
+    token_data = create_token_pair(user.id)
+    
+    # Cihaz bilgisini al
+    user_agent = request.headers.get('user-agent', 'Unknown Device')[:100]
+    
+    # Refresh token'ı veritabanına kaydet
+    create_refresh_token_db(db, user.id, token_data["refresh_token"], user_agent)
+    
+    # Eski token'ları temizle (opsiyonel)
+    cleanup_expired_tokens(db)
+    
     logger.info(f"✅ Login successful: {user.email} (ID: {user.id})")
-    return {"access_token": access_token, "token_type": "bearer"}  # Token'ı döndür
+    return token_data  # Token çiftini döndür
 
 @app.get("/api/me", response_model=schemas.UserOut)
 def read_me(current_user: models.User = Depends(get_current_user)):
     """Mevcut kullanıcı bilgilerini getirir"""
     return current_user  # Giriş yapmış kullanıcıyı döndür
 
+@app.get("/api/me/tokens", response_model=List[schemas.RefreshTokenOut])
+def get_my_tokens(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Kullanıcının aktif token'larını listeler"""
+    logger.info(f"📱 Getting tokens for user: {current_user.email}")
+    
+    # Kullanıcının aktif token'larını al
+    active_tokens = db.query(models.RefreshToken).filter(
+        models.RefreshToken.user_id == current_user.id,
+        models.RefreshToken.is_active == "true"
+    ).order_by(models.RefreshToken.created_at.desc()).all()
+    
+    logger.info(f"✅ Found {len(active_tokens)} active tokens")
+    return active_tokens
+
+@app.delete("/api/me/tokens/{token_id}")
+def revoke_token(token_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Belirli bir token'ı geçersizleştir"""
+    logger.info(f"🗑️ Revoking token {token_id} for user: {current_user.email}")
+    
+    # Token'ı bul ve kullanıcının token'ı olduğunu kontrol et
+    token = db.query(models.RefreshToken).filter(
+        models.RefreshToken.id == token_id,
+        models.RefreshToken.user_id == current_user.id
+    ).first()
+    
+    if not token:
+        logger.warning(f"❌ Token not found: {token_id}")
+        raise HTTPException(status_code=404, detail="Token not found")
+    
+    # Token'ı sil
+    db.delete(token)
+    db.commit()
+    
+    logger.info(f"✅ Token {token_id} revoked successfully")
+    return {"message": "Token revoked successfully", "status": "success"}
+
+@app.post("/api/refresh", response_model=schemas.Token)
+def refresh_access_token(request: Request, token_data: schemas.TokenRefresh, db: Session = Depends(get_db)):
+    """Refresh token ile yeni access token alır"""
+    logger.info(f"🔄 Token refresh attempt")
+    
+    # Refresh token'ı veritabanından kontrol et
+    db_refresh_token = get_refresh_token_db(db, token_data.refresh_token)
+    if not db_refresh_token:
+        logger.warning(f"❌ Invalid refresh token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    
+    # Token süresi kontrolü
+    from datetime import datetime
+    if db_refresh_token.expires_at < datetime.utcnow():
+        logger.warning(f"❌ Expired refresh token")
+        # Süresi dolmuş token'ı sil
+        db.delete(db_refresh_token)
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+    
+    # Kullanıcıyı al
+    user = get_user(db, db_refresh_token.user_id)
+    if not user:
+        logger.warning(f"❌ User not found for refresh token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    
+    # Yeni token çifti oluştur
+    new_token_data = create_token_pair(user.id)
+    
+    # Eski refresh token'ı geçersiz kıl
+    invalidate_refresh_token(db, token_data.refresh_token)
+    
+    # Yeni refresh token'ı kaydet
+    user_agent = request.headers.get('user-agent', 'Unknown Device')[:100]
+    create_refresh_token_db(db, user.id, new_token_data["refresh_token"], user_agent)
+    
+    # Son kullanım tarihini güncelle
+    db_refresh_token.last_used_at = datetime.utcnow()
+    db.commit()
+    
+    logger.info(f"✅ Token refreshed successfully for user: {user.email}")
+    return new_token_data
+
 @app.post("/api/logout")
-def logout(current_user: models.User = Depends(get_current_user)):
-    """Kullanıcı çıkışı - token geçersizleştirme için"""
+def logout(request: Request, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Kullanıcı çıkışı - tüm refresh token'ları geçersizleştir"""
     logger.info(f"🚪 User logout: {current_user.email} (ID: {current_user.id})")
-    return {"message": "Logged out successfully", "status": "success"}
+    
+    # Kullanıcının tüm aktif refresh token'larını geçersiz kıl
+    active_tokens = db.query(models.RefreshToken).filter(
+        models.RefreshToken.user_id == current_user.id,
+        models.RefreshToken.is_active == "true"
+    ).all()
+    
+    for token in active_tokens:
+        token.is_active = "false"
+    
+    db.commit()
+    
+    logger.info(f"✅ Logged out successfully, invalidated {len(active_tokens)} tokens")
+    return {"message": "Logged out successfully", "status": "success", "tokens_invalidated": len(active_tokens)}
+
+@app.post("/api/logout-all")
+def logout_all_devices(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Tüm cihazlardan çıkış - kullanıcının tüm token'larını geçersizleştir"""
+    logger.info(f"🚪 Logout all devices: {current_user.email} (ID: {current_user.id})")
+    
+    # Kullanıcının tüm refresh token'larını sil
+    deleted_count = db.query(models.RefreshToken).filter(
+        models.RefreshToken.user_id == current_user.id
+    ).delete()
+    
+    db.commit()
+    
+    logger.info(f"✅ Logged out from all devices, deleted {deleted_count} tokens")
+    return {"message": "Logged out from all devices", "status": "success", "tokens_deleted": deleted_count}
 
 # --- Müşteri Endpoint'leri ---
 @app.post("/api/customers", response_model=schemas.CustomerOut)

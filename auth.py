@@ -3,11 +3,13 @@ from typing import Optional  # Tip belirteçleri için
 from jose import JWTError, jwt  # JWT token işlemleri için
 from passlib.context import CryptContext  # Şifre hashleme için
 import os  # Ortam değişkenleri için
+import secrets  # Güvenli rastgele string üretimi için
 
 # Gizli anahtar - ortam değişkeninden al veya varsayılan kullan (üretimde değiştir)
 SECRET_KEY = os.getenv("CRM_SECRET_KEY", "change_this_secret_in_prod")
 ALGORITHM = "HS256"  # JWT imzalama algoritması
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # Token geçerlilik süresi: 1 gün
+ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Access token geçerlilik süresi: 1 saat
+REFRESH_TOKEN_EXPIRE_DAYS = 30  # Refresh token geçerlilik süresi: 30 gün
 
 # Şifre hashleme bağlamı - bcrypt şemasını kullan
 try:
@@ -58,3 +60,30 @@ def decode_access_token(token: str):
         return payload  # Token içeriğini döndür
     except JWTError:  # Token geçersizse
         return None  # None döndür
+
+def create_refresh_token() -> str:
+    """Güvenli refresh token oluşturur"""
+    return secrets.token_urlsafe(32)  # 32 byte güvenli rastgele string
+
+def create_token_pair(user_id: int) -> dict:
+    """Access ve refresh token çifti oluşturur"""
+    # Access token oluştur
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user_id)}, 
+        expires_delta=access_token_expires
+    )
+    
+    # Refresh token oluştur
+    refresh_token = create_refresh_token()
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60  # Saniye cinsinden
+    }
+
+def get_refresh_token_expire_time() -> datetime:
+    """Refresh token son kullanma tarihini döndürür"""
+    return datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)

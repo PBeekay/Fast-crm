@@ -28,11 +28,31 @@ class UserOut(BaseModel):
     class Config:
         from_attributes = True  # ORM nesnelerinden veri alabilir
 
-# --- Token Şeması ---
+# --- Token Şemaları ---
 class Token(BaseModel):
     """JWT token şeması - kimlik doğrulama token'ı için"""
     access_token: str  # Erişim token'ı
+    refresh_token: str  # Yenileme token'ı
     token_type: str = "bearer"  # Token türü, varsayılan "bearer"
+    expires_in: int = 1440  # Access token geçerlilik süresi (dakika)
+
+class TokenRefresh(BaseModel):
+    """Token yenileme şeması"""
+    refresh_token: str  # Yenileme token'ı
+
+class RefreshTokenOut(BaseModel):
+    """Refresh token çıktı şeması"""
+    id: int
+    token: str
+    user_id: int
+    expires_at: datetime
+    is_active: str
+    created_at: datetime
+    last_used_at: Optional[datetime]
+    device_info: Optional[str]
+
+    class Config:
+        from_attributes = True
 
 # --- Müşteri Şemaları ---
 class CustomerBase(BaseModel):
