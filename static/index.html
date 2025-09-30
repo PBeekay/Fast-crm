@@ -61,6 +61,10 @@
             </div>
             
             <nav class="sidebar-nav">
+                <button class="nav-item" id="dashboardTab">
+                    <i class="ri-dashboard-line"></i>
+                    <span>Dashboard</span>
+                </button>
                 <button class="nav-item active" id="customersTab">
                     <i class="ri-group-line"></i>
                     <span>Customers</span>
@@ -86,6 +90,58 @@
         <!-- Main Content -->
         <main class="main-content">
             <!-- Customers View -->
+            <div id="dashboardSection" class="content-section hidden">
+                <div class="page-header">
+                    <div>
+                        <h1>Dashboard</h1>
+                        <p>Overview of your CRM data and recent activity</p>
+                    </div>
+                </div>
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="ri-group-line"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalCustomers">0</h3>
+                            <p>Total Customers</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="ri-user-add-line"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="activeCustomers">0</h3>
+                            <p>Active Customers</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="ri-file-list-line"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalNotes">0</h3>
+                            <p>Total Notes</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="ri-calendar-line"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="recentActivity">0</h3>
+                            <p>Recent Activity</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="recent-customers">
+                    <h2>Recent Customers</h2>
+                    <div class="recent-list" id="recentCustomersList">
+                        <p class="text-muted">No recent customers</p>
+                    </div>
+                </div>
+            </div>
             <div id="customersSection" class="content-section">
                 <div class="page-header">
                     <div>
@@ -133,6 +189,7 @@
                                     <th>Name</th>
                                     <th>Email</th>
                                     <th>Company</th>
+                                    <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -203,6 +260,19 @@
                     <div class="form-field">
                         <i class="ri-building-line"></i>
                         <input type="text" id="customerCompany" placeholder="Enter company name">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <div class="form-field">
+                        <i class="ri-user-line"></i>
+                        <select id="customerStatus">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                            <option value="Lead">Lead</option>
+                            <option value="Prospect">Prospect</option>
+                            <option value="Converted">Converted</option>
+                        </select>
                     </div>
                 </div>
             </div>

@@ -48,14 +48,12 @@ const customerSearch = document.getElementById('customerSearch');
 if (customerSearch) {
     customerSearch.addEventListener('input', (e) => {
         clearTimeout(customerSearchTimeout);
-        customerSearchTimeout = setTimeout(() => {
-            const searchTerm = e.target.value.toLowerCase();
-            const rows = document.querySelectorAll('#customersList tr');
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
-        }, 300);
+        customerSearchTimeout = setTimeout(async () => {
+            const searchTerm = e.target.value.trim();
+            if (searchTerm.length >= 2 || searchTerm.length === 0) {
+                await loadCustomers(searchTerm);
+            }
+        }, 500); // Increased timeout for better UX
     });
 }
 
@@ -71,13 +69,20 @@ const elements = {
     themeToggle: document.getElementById('themeToggle'),
     themeIcon: document.getElementById('themeIcon'),
     themeText: document.getElementById('themeText'),
+    dashboardTab: document.getElementById('dashboardTab'), // Added missing dashboardTab
     customersTab: document.getElementById('customersTab'),
     notesTab: document.getElementById('notesTab'),
     customersSection: document.getElementById('customersSection'),
     notesSection: document.getElementById('notesSection'),
+    dashboardSection: document.getElementById('dashboardSection'),
     customersList: document.getElementById('customersList'),
     notesList: document.getElementById('notesList'),
     customerSelect: document.getElementById('customerSelect'),
+    totalCustomers: document.getElementById('totalCustomers'),
+    activeCustomers: document.getElementById('activeCustomers'),
+    totalNotes: document.getElementById('totalNotes'),
+    recentActivity: document.getElementById('recentActivity'),
+    recentCustomersList: document.getElementById('recentCustomersList'),
     addCustomerBtn: document.getElementById('addCustomerBtn'),
     addNoteBtn: document.getElementById('addNoteBtn'),
     addCustomerModal: document.getElementById('addCustomerModal'),
@@ -86,6 +91,7 @@ const elements = {
     customerEmail: document.getElementById('customerEmail'),
     customerPhone: document.getElementById('customerPhone'),
     customerCompany: document.getElementById('customerCompany'),
+    customerStatus: document.getElementById('customerStatus'),
     noteContent: document.getElementById('noteContent'),
 };
 
@@ -120,28 +126,34 @@ async function fetchAPI(endpoint, options = {}) {
 
         if (!response.ok) {
             let message = response.statusText;
-            let responseText = '';
             
             try {
-                // Try to get response text first to see what we're dealing with
-                responseText = await response.text();
+                // Clone the response to avoid "body stream already read" error
+                const responseClone = response.clone();
+                const responseText = await responseClone.text();
                 console.log('Response text:', responseText);
                 
                 // Try to parse as JSON
-                const data = JSON.parse(responseText);
-                if (data && (data.detail || data.message)) {
-                    message = data.detail || data.message;
+                if (responseText) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        if (data && (data.detail || data.message)) {
+                            message = data.detail || data.message;
+                        }
+                    } catch (parseError) {
+                        console.error('JSON parse error:', parseError);
+                        
+                        // If it's HTML (like an error page), provide a better message
+                        if (responseText.includes('<html>') || responseText.includes('<!DOCTYPE')) {
+                            message = `Server returned HTML instead of JSON (Status: ${response.status}). This might be a server error or authentication issue.`;
+                        } else {
+                            message = `Invalid JSON response (Status: ${response.status}): ${responseText.substring(0, 100)}...`;
+                        }
+                    }
                 }
-            } catch (parseError) {
-                console.error('JSON parse error:', parseError);
-                console.error('Response was not JSON:', responseText);
-                
-                // If it's HTML (like an error page), provide a better message
-                if (responseText.includes('<html>') || responseText.includes('<!DOCTYPE')) {
-                    message = `Server returned HTML instead of JSON (Status: ${response.status}). This might be a server error or authentication issue.`;
-                } else {
-                    message = `Invalid JSON response (Status: ${response.status}): ${responseText.substring(0, 100)}...`;
-                }
+            } catch (textError) {
+                console.error('Error reading response text:', textError);
+                message = `Failed to read error response (Status: ${response.status})`;
             }
             throw new Error(message);
         }
@@ -151,9 +163,9 @@ async function fetchAPI(endpoint, options = {}) {
             return await response.json();
         } catch (jsonError) {
             console.error('JSON parse error in successful response:', jsonError);
-            const responseText = await response.text();
-            console.error('Response text:', responseText);
-            throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}...`);
+            // For successful responses, if JSON parsing fails, return null instead of throwing
+            console.warn('Response was successful but not valid JSON, returning null');
+            return null;
         }
     } catch (error) {
         console.error('API Error:', error);
@@ -302,28 +314,127 @@ function showLoginWindow() {
 function showCRMWindow() {
     elements.loginWindow.classList.add('hidden');
     elements.crmWindow.classList.remove('hidden');
+    
+    // Initialize UI state - show dashboard section by default
+    elements.dashboardSection.classList.remove('hidden');
+    elements.customersSection.classList.add('hidden');
+    elements.notesSection.classList.add('hidden');
+    
+    // Set active tab - dashboard by default
+    elements.dashboardTab.classList.add('active');
+    elements.customersTab.classList.remove('active');
+    elements.notesTab.classList.remove('active');
+    
+    // Load dashboard data
+    loadDashboard();
+    // Also load customers for the dropdown in notes section
     loadCustomers();
 }
 
+function showDashboardTab() {
+    // Update tab states
+    elements.dashboardTab.classList.add('active');
+    elements.customersTab.classList.remove('active');
+    elements.notesTab.classList.remove('active');
+    
+    // Update sections
+    elements.dashboardSection.classList.remove('hidden');
+    elements.customersSection.classList.add('hidden');
+    elements.notesSection.classList.add('hidden');
+    
+    loadDashboard();
+}
+
 function showCustomersTab() {
-    elements.customersTab.setAttribute('aria-selected', 'true');
-    elements.notesTab.setAttribute('aria-selected', 'false');
+    // Update tab states
+    elements.dashboardTab.classList.remove('active');
+    elements.customersTab.classList.add('active');
+    elements.notesTab.classList.remove('active');
+    
+    // Update sections
+    elements.dashboardSection.classList.add('hidden');
     elements.customersSection.classList.remove('hidden');
     elements.notesSection.classList.add('hidden');
+    
+    loadCustomers();
 }
 
 function showNotesTab() {
-    elements.customersTab.setAttribute('aria-selected', 'false');
-    elements.notesTab.setAttribute('aria-selected', 'true');
+    // Update tab states
+    elements.dashboardTab.classList.remove('active');
+    elements.customersTab.classList.remove('active');
+    elements.notesTab.classList.add('active');
+    
+    // Update sections
+    elements.dashboardSection.classList.add('hidden');
     elements.customersSection.classList.add('hidden');
     elements.notesSection.classList.remove('hidden');
-    loadNotes();
+    
+    // Load customers for the dropdown first, then load notes
+    loadCustomers().then(() => {
+        loadNotes();
+    });
 }
 
 // Data Loading Functions
-async function loadCustomers() {
+async function loadDashboard() {
     try {
+        // Load customers for dashboard
         const customers = await fetchAPI(endpoints.customers);
+        let totalNotes = 0;
+        
+        // Load notes for all customers
+        if (customers && customers.length > 0) {
+            for (const customer of customers) {
+                try {
+                    const customerNotes = await fetchAPI(endpoints.notes(customer.id));
+                    if (customerNotes) {
+                        totalNotes += customerNotes.length;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to load notes for customer ${customer.id}:`, error);
+                }
+            }
+        }
+        
+        if (customers) {
+            // Update dashboard stats
+            elements.totalCustomers.textContent = customers.length;
+            
+            // Count active customers
+            const activeCount = customers.filter(c => c.status === 'Active').length;
+            elements.activeCustomers.textContent = activeCount;
+            
+            // Show recent customers (last 5)
+            const recentCustomers = customers.slice(0, 5);
+            elements.recentCustomersList.innerHTML = recentCustomers.length > 0 
+                ? recentCustomers.map(customer => `
+                    <div class="recent-item">
+                        <div class="recent-info">
+                            <span class="recent-name">${customer.name}</span>
+                            <span class="recent-company">${customer.company || 'No company'}</span>
+                        </div>
+                        <span class="status-badge status-${(customer.status || 'Active').toLowerCase()}">${customer.status || 'Active'}</span>
+                    </div>
+                `).join('')
+                : '<p class="text-muted">No customers yet</p>';
+        }
+        
+        // Update notes count
+        elements.totalNotes.textContent = totalNotes;
+        
+        // Set recent activity (placeholder)
+        elements.recentActivity.textContent = customers ? customers.length : 0;
+        
+    } catch (error) {
+        console.error('Failed to load dashboard:', error);
+    }
+}
+
+async function loadCustomers(searchTerm = '') {
+    try {
+        const url = searchTerm ? `${endpoints.customers}?search=${encodeURIComponent(searchTerm)}` : endpoints.customers;
+        const customers = await fetchAPI(url);
         if (customers) {
             renderCustomers(customers);
             updateCustomerSelect(customers);
@@ -340,28 +451,46 @@ async function loadNotes() {
         let customerName = '';
         
         if (customerId) {
-            notes = await fetchAPI(endpoints.notes(customerId));
-            const customer = await fetchAPI(endpoints.customer(customerId));
-            if (customer) {
-                customerName = customer.name;
+            // Load notes for specific customer
+            const notesResponse = await fetchAPI(endpoints.notes(customerId));
+            if (notesResponse) {
+                notes = notesResponse;
+                
+                // Get customer name
+                const customer = await fetchAPI(endpoints.customer(customerId));
+                if (customer) {
+                    customerName = customer.name;
+                }
             }
         } else {
             // Load notes for all customers
             const customers = await fetchAPI(endpoints.customers);
-            if (customers) {
-                for (const customer of customers) {
-                    const customerNotes = await fetchAPI(endpoints.notes(customer.id));
-                    if (customerNotes) {
-                        notes = notes.concat(customerNotes);
+            if (customers && customers.length > 0) {
+                const allNotesPromises = customers.map(async (customer) => {
+                    try {
+                        const customerNotes = await fetchAPI(endpoints.notes(customer.id));
+                        if (customerNotes && customerNotes.length > 0) {
+                            // Add customer name to each note for display
+                            return customerNotes.map(note => ({
+                                ...note,
+                                customerName: customer.name
+                            }));
+                        }
+                        return [];
+                    } catch (error) {
+                        console.warn(`Failed to load notes for customer ${customer.id}:`, error);
+                        return [];
                     }
-                }
+                });
+                
+                const allNotesArrays = await Promise.all(allNotesPromises);
+                notes = allNotesArrays.flat();
             }
         }
 
-        if (notes) {
-            renderNotes(notes, customerName);
-        }
+        renderNotes(notes, customerName);
     } catch (error) {
+        console.error('Failed to load notes:', error);
         showNotification(error.message || 'Failed to load notes', 'error');
     }
 }
@@ -398,8 +527,12 @@ function renderCustomers(customers) {
             </td>
             <td>${customer.email || '-'}</td>
             <td>${customer.company || '-'}</td>
+            <td><span class="status-badge status-${(customer.status || 'Active').toLowerCase()}">${customer.status || 'Active'}</span></td>
             <td>
                 <div class="table-actions">
+                    <button class="btn btn-icon" onclick="editCustomer(${customer.id})" title="Edit Customer">
+                        <i class="ri-edit-line"></i>
+                    </button>
                     <button class="btn btn-icon" onclick="viewNotes(${customer.id})" title="View Notes">
                         <i class="ri-file-list-line"></i>
                     </button>
@@ -418,33 +551,51 @@ function renderCustomers(customers) {
 function renderNotes(notes, customerName = '') {
     if (!Array.isArray(notes)) {
         console.error('Invalid notes data:', notes);
+        elements.notesList.innerHTML = '<div class="no-data">No notes found</div>';
+        document.getElementById('noteCount').textContent = '0';
         return;
     }
 
-    elements.notesList.innerHTML = notes.map(note => `
-        <div class="note-card">
-            <div class="note-header">
-                <h4>${customerName || `Customer #${note.customer_id}`}</h4>
-                <button class="btn btn-icon" onclick="deleteNote(${note.customer_id}, ${note.id})" title="Delete Note">
-                    <i class="ri-delete-bin-line"></i>
-                </button>
+    if (notes.length === 0) {
+        elements.notesList.innerHTML = '<div class="no-data">No notes found</div>';
+        document.getElementById('noteCount').textContent = '0';
+        return;
+    }
+
+    elements.notesList.innerHTML = notes.map(note => {
+        // Use customerName from note object if available, otherwise use the passed customerName
+        const displayName = note.customerName || customerName || `Customer #${note.customer_id}`;
+        
+        return `
+            <div class="note-card">
+                <div class="note-header">
+                    <h4>${displayName}</h4>
+                    <button class="btn btn-icon" onclick="deleteNote(${note.customer_id}, ${note.id})" title="Delete Note">
+                        <i class="ri-delete-bin-line"></i>
+                    </button>
+                </div>
+                <div class="note-content">
+                    ${note.content}
+                </div>
+                <div class="note-footer">
+                    <span><i class="ri-time-line"></i> ${new Date(note.created_at).toLocaleString()}</span>
+                </div>
             </div>
-            <div class="note-content">
-                ${note.content}
-            </div>
-            <div class="note-footer">
-                <span><i class="ri-time-line"></i> ${new Date(note.created_at).toLocaleString()}</span>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 
     // Update note count
     document.getElementById('noteCount').textContent = notes.length;
 }
 
 function updateCustomerSelect(customers) {
+    if (!customers || !Array.isArray(customers)) {
+        elements.customerSelect.innerHTML = '<option value="">No customers available</option>';
+        return;
+    }
+    
     elements.customerSelect.innerHTML = `
-        <option value="">Select Customer</option>
+        <option value="">All Customers</option>
         ${customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
     `;
 }
@@ -452,7 +603,7 @@ function updateCustomerSelect(customers) {
 // Customer Functions
 async function addCustomer() {
     try {
-        console.log('=== ADD CUSTOMER DEBUG ===');
+        console.log('=== ADD/UPDATE CUSTOMER DEBUG ===');
         console.log('Current token:', token ? 'Present' : 'Missing');
         console.log('Token length:', token ? token.length : 'N/A');
         
@@ -466,7 +617,8 @@ async function addCustomer() {
             name: elements.customerName.value.trim(),
             email: elements.customerEmail.value.trim(),
             phone: elements.customerPhone.value.trim(),
-            company: elements.customerCompany.value.trim()
+            company: elements.customerCompany.value.trim(),
+            status: elements.customerStatus.value
         };
         
         console.log('Customer data:', customerData);
@@ -477,21 +629,59 @@ async function addCustomer() {
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<i class="ri-loader-4-line"></i> Saving...';
 
-        const response = await createCustomer(customerData);
+        // Check if we're editing an existing customer
+        const customerId = elements.addCustomerModal.dataset.customerId;
+        let response;
+        
+        if (customerId) {
+            // Update existing customer
+            response = await fetchAPI(endpoints.customer(customerId), {
+                method: 'PUT',
+                body: JSON.stringify(customerData)
+            });
+        } else {
+            // Create new customer
+            response = await createCustomer(customerData);
+        }
+        
         if (response) {
             elements.addCustomerModal.classList.add('hidden');
             modalBackdrop.classList.add('hidden');
             await loadCustomers();
-            showNotification('Customer added successfully', 'success');
+            
+            const message = customerId ? 'Customer updated successfully' : 'Customer added successfully';
+            showNotification(message, 'success');
+            
+            // Reset form and modal state
+            resetCustomerForm();
         }
     } catch (error) {
-        showNotification(error.message || 'Failed to add customer', 'error');
+        showNotification(error.message || 'Failed to save customer', 'error');
     } finally {
         // Reset button state
         const saveBtn = document.getElementById('saveCustomerBtn');
         saveBtn.disabled = false;
         saveBtn.innerHTML = '<i class="ri-save-line"></i> Save Customer';
     }
+}
+
+function resetCustomerForm() {
+    // Clear form fields
+    elements.customerName.value = '';
+    elements.customerEmail.value = '';
+    elements.customerPhone.value = '';
+    elements.customerCompany.value = '';
+    elements.customerStatus.value = 'Active';
+    
+    // Remove customer ID from modal
+    delete elements.addCustomerModal.dataset.customerId;
+    
+    // Reset modal title and button
+    const modalTitle = elements.addCustomerModal.querySelector('.modal-title');
+    const submitBtn = elements.addCustomerModal.querySelector('.btn-primary');
+    
+    if (modalTitle) modalTitle.textContent = 'Add New Customer';
+    if (submitBtn) submitBtn.textContent = 'Add Customer';
 }
 
 async function deleteCustomer(id) {
@@ -508,6 +698,35 @@ async function deleteCustomer(id) {
         }
     } catch (error) {
         showNotification(error.message || 'Failed to delete customer', 'error');
+    }
+}
+
+async function editCustomer(id) {
+    try {
+        // Get customer data
+        const customer = await fetchAPI(endpoints.customer(id));
+        
+        // Populate edit form
+        elements.customerName.value = customer.name || '';
+        elements.customerEmail.value = customer.email || '';
+        elements.customerPhone.value = customer.phone || '';
+        elements.customerCompany.value = customer.company || '';
+        elements.customerStatus.value = customer.status || 'Active';
+        
+        // Store customer ID for update
+        elements.addCustomerModal.dataset.customerId = id;
+        
+        // Change modal title and button
+        const modalTitle = elements.addCustomerModal.querySelector('.modal-title');
+        const submitBtn = elements.addCustomerModal.querySelector('.btn-primary');
+        
+        if (modalTitle) modalTitle.textContent = 'Edit Customer';
+        if (submitBtn) submitBtn.textContent = 'Update Customer';
+        
+        // Show modal
+        elements.addCustomerModal.classList.remove('hidden');
+    } catch (error) {
+        showNotification(error.message || 'Failed to load customer data', 'error');
     }
 }
 
@@ -538,6 +757,10 @@ async function addNote() {
         if (response) {
             elements.addNoteModal.classList.add('hidden');
             modalBackdrop.classList.add('hidden');
+            
+            // Reset form
+            elements.noteContent.value = '';
+            
             await loadNotes();
             showNotification('Note added successfully', 'success');
         }
@@ -599,6 +822,9 @@ elements.loginBtn.addEventListener('click', () => {
     }
 
     // Other event listeners
+    if (elements.dashboardTab) {
+elements.dashboardTab.addEventListener('click', showDashboardTab);
+    }
     if (elements.customersTab) {
 elements.customersTab.addEventListener('click', showCustomersTab);
     }
@@ -608,11 +834,8 @@ elements.notesTab.addEventListener('click', showNotesTab);
 
     if (elements.addCustomerBtn) {
 elements.addCustomerBtn.addEventListener('click', () => {
-    // Clear form
-    elements.customerName.value = '';
-    elements.customerEmail.value = '';
-    elements.customerPhone.value = '';
-    elements.customerCompany.value = '';
+    // Reset form and modal state
+    resetCustomerForm();
     
     // Show modal
     elements.addCustomerModal.classList.remove('hidden');
