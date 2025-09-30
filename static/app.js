@@ -1,5 +1,6 @@
 // Global state
-let token = localStorage.getItem('token'); // Tokeni localStorage'dan al
+let token = localStorage.getItem('token'); // Access token'ı localStorage'dan al
+let refreshToken = localStorage.getItem('refreshToken'); // Refresh token'ı localStorage'dan al
 let currentUser = null;
 let currentTheme = localStorage.getItem('theme') || 'light'; // Theme state
 
@@ -10,11 +11,13 @@ const modalBackdrop = document.getElementById('modalBackdrop'); // Modal arka pl
 const API_URL = '/api';  // API endpoint prefix
 const endpoints = {
     login: `${API_URL}/token`, // Login endpoint
+    refresh: `${API_URL}/refresh`, // Refresh token endpoint
     register: `${API_URL}/register`, // Register endpoint
     customers: `${API_URL}/customers`, // Customers endpoint
     customer: (id) => `${API_URL}/customers/${id}`, // Customer endpoint
     notes: (customerId) => `${API_URL}/customers/${customerId}/notes`, // Notes endpoint
     note: (customerId, noteId) => `${API_URL}/customers/${customerId}/notes/${noteId}`, // Note endpoint
+    myTokens: `${API_URL}/me/tokens`, // User tokens endpoint
 };
 
 // API Functions
@@ -95,6 +98,48 @@ const elements = {
     noteContent: document.getElementById('noteContent'),
 };
 
+// Token Management
+async function refreshAccessToken() {
+    if (!refreshToken) {
+        console.log('No refresh token available');
+        return false;
+    }
+
+    try {
+        console.log('Attempting to refresh access token...');
+        const response = await fetch(endpoints.refresh, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                refresh_token: refreshToken
+            })
+        });
+
+        if (!response.ok) {
+            console.log('Refresh token failed:', response.status);
+            return false;
+        }
+
+        const data = await response.json();
+        
+        // Update tokens
+        token = data.access_token;
+        refreshToken = data.refresh_token;
+        
+        // Save to localStorage
+        localStorage.setItem('token', token);
+        localStorage.setItem('refreshToken', refreshToken);
+        
+        console.log('Access token refreshed successfully');
+        return true;
+    } catch (error) {
+        console.error('Token refresh error:', error);
+        return false;
+    }
+}
+
 // API Helpers
 async function fetchAPI(endpoint, options = {}) {
     const headers = {
@@ -119,6 +164,35 @@ async function fetchAPI(endpoint, options = {}) {
         });
 
         if (response.status === 401) {
+            console.log('401 Unauthorized - attempting token refresh...');
+            
+            // Try to refresh token
+            const refreshSuccess = await refreshAccessToken();
+            if (refreshSuccess) {
+                console.log('Token refreshed, retrying original request...');
+                
+                // Retry original request with new token
+                const retryHeaders = {
+                    ...headers,
+                    'Authorization': `Bearer ${token}`
+                };
+                
+                const retryResponse = await fetch(endpoint, {
+                    ...options,
+                    headers: retryHeaders
+                });
+                
+                if (retryResponse.ok) {
+                    try {
+                        return await retryResponse.json();
+                    } catch (jsonError) {
+                        console.warn('Retry response was successful but not valid JSON, returning null');
+                        return null;
+                    }
+                }
+            }
+            
+            // If refresh failed or retry failed, logout
             showNotification('Session expired. Please login again.', 'error');
             logout();
             return null;
@@ -195,7 +269,12 @@ async function login(email, password) {
 
         const data = await response.json();
         token = data.access_token;
+        refreshToken = data.refresh_token;
+        
         localStorage.setItem('token', token);
+        localStorage.setItem('refreshToken', refreshToken);
+        
+        console.log('Login successful, tokens saved');
         showCRMWindow();
     } catch (error) {
         elements.loginError.textContent = 'Invalid email or password';
@@ -238,9 +317,11 @@ async function logout() {
         console.warn('Logout API call failed:', error);
     } finally {
         // Clear all user data
-    token = null;
+        token = null;
+        refreshToken = null;
         currentUser = null;
-    localStorage.removeItem('token');
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         
         // Clear any form data
         if (elements.email) elements.email.value = '';
