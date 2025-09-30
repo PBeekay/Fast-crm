@@ -43,17 +43,102 @@ async def log_requests(request, call_next):
     """HTTP isteklerini ve yanıtlarını logla"""
     start_time = time.time()
     
+    # Client bilgilerini al
+    client_ip = request.client.host if request.client else 'unknown'
+    user_agent = request.headers.get('user-agent', 'unknown')[:50]  # İlk 50 karakter
+    
     # İstek bilgilerini logla
-    logger.info(f"🔵 {request.method} {request.url.path} - Client: {request.client.host if request.client else 'unknown'}")
+    method_emoji = {
+        'GET': '📖',
+        'POST': '📝', 
+        'PUT': '✏️',
+        'DELETE': '🗑️',
+        'PATCH': '🔧',
+        'HEAD': '👁️',
+        'OPTIONS': '⚙️'
+    }.get(request.method, '🔵')
+    
+    logger.info(f"{method_emoji} {request.method} {request.url.path} - Client: {client_ip}")
+    logger.info(f"📱 User-Agent: {user_agent}")
+    
+    # Query parameters varsa logla
+    if request.query_params:
+        logger.info(f"🔍 Query: {dict(request.query_params)}")
+    
+    # Request body size (if available)
+    content_length = request.headers.get('content-length')
+    if content_length:
+        logger.info(f"📦 Request Body Size: {content_length} bytes")
     
     # İsteği işle
     response = await call_next(request)
     
     # Yanıt bilgilerini logla
     process_time = time.time() - start_time
-    status_emoji = "🟢" if response.status_code < 400 else "🔴" if response.status_code >= 500 else "🟡"
     
-    logger.info(f"{status_emoji} {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.3f}s")
+    # Status code'a göre emoji ve açıklama
+    if response.status_code < 200:
+        status_emoji = "🟡"
+        status_desc = "Informational"
+    elif response.status_code < 300:
+        status_emoji = "🟢"
+        status_desc = "Success"
+    elif response.status_code < 400:
+        status_emoji = "🟡"
+        status_desc = "Redirect"
+    elif response.status_code < 500:
+        status_emoji = "🟠"
+        status_desc = "Client Error"
+    else:
+        status_emoji = "🔴"
+        status_desc = "Server Error"
+    
+    # Response headers'da önemli bilgiler varsa logla
+    content_type = response.headers.get('content-type', 'unknown')
+    content_length = response.headers.get('content-length', 'unknown')
+    
+    # Performance categorization
+    if process_time < 0.1:
+        perf_emoji = "⚡"
+        perf_desc = "Fast"
+    elif process_time < 0.5:
+        perf_emoji = "🚀"
+        perf_desc = "Good"
+    elif process_time < 1.0:
+        perf_emoji = "🐌"
+        perf_desc = "Slow"
+    else:
+        perf_emoji = "🐢"
+        perf_desc = "Very Slow"
+    
+    logger.info(f"{status_emoji} {request.method} {request.url.path} - Status: {response.status_code} ({status_desc}) - Time: {process_time:.3f}s")
+    logger.info(f"📄 Content-Type: {content_type} | Content-Length: {content_length}")
+    logger.info(f"{perf_emoji} Performance: {perf_desc} ({process_time:.3f}s)")
+    
+    # Error durumlarında daha detaylı log
+    if response.status_code >= 400:
+        logger.warning(f"⚠️ Error Response: {response.status_code} for {request.method} {request.url.path}")
+    
+    # Specific status code logging
+    if response.status_code == 200:
+        logger.info(f"✅ OK: {request.method} {request.url.path} completed successfully")
+    elif response.status_code == 201:
+        logger.info(f"✅ Created: {request.method} {request.url.path} resource created")
+    elif response.status_code == 400:
+        logger.warning(f"❌ Bad Request: {request.method} {request.url.path} - Invalid request data")
+    elif response.status_code == 401:
+        logger.warning(f"🔒 Unauthorized: {request.method} {request.url.path} - Authentication required")
+    elif response.status_code == 403:
+        logger.warning(f"🚫 Forbidden: {request.method} {request.url.path} - Access denied")
+    elif response.status_code == 404:
+        logger.warning(f"🔍 Not Found: {request.method} {request.url.path} - Resource not found")
+    elif response.status_code == 422:
+        logger.warning(f"📝 Unprocessable Entity: {request.method} {request.url.path} - Validation error")
+    elif response.status_code == 500:
+        logger.error(f"💥 Internal Server Error: {request.method} {request.url.path} - Server error")
+    
+    # Request summary
+    logger.info(f"📊 Request Summary: {method_emoji} {request.method} {request.url.path} → {status_emoji} {response.status_code} ({perf_emoji} {process_time:.3f}s)")
     
     return response
 
@@ -220,9 +305,22 @@ def create_customer(customer_in: schemas.CustomerCreate, db: Session = Depends(g
     return customer  # Müşteriyi döndür
 
 @app.get("/api/customers", response_model=List[schemas.CustomerOut])
-def list_customers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    """Kullanıcının müşterilerini listeler (sayfalama ile)"""
-    customers = db.query(models.Customer).filter(models.Customer.owner_id == current_user.id).offset(skip).limit(limit).all()  # Sahip kullanıcının müşterilerini getir
+def list_customers(skip: int = 0, limit: int = 100, search: str = None, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Kullanıcının müşterilerini listeler (sayfalama ve arama ile)"""
+    query = db.query(models.Customer).filter(models.Customer.owner_id == current_user.id)
+    
+    # Arama filtresi ekle
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            models.Customer.name.ilike(search_term) |
+            models.Customer.email.ilike(search_term) |
+            models.Customer.company.ilike(search_term) |
+            models.Customer.phone.ilike(search_term)
+        )
+        logger.info(f"🔍 Searching customers with term: '{search}' (User: {current_user.email})")
+    
+    customers = query.offset(skip).limit(limit).all()
     logger.info(f"📋 Listed {len(customers)} customers for user: {current_user.email}")
     return customers
 
@@ -238,6 +336,27 @@ def get_customer(customer_id: int, db: Session = Depends(get_db), current_user: 
     
     logger.info(f"✅ Customer retrieved: {customer.name} (ID: {customer.id})")
     return customer  # Müşteriyi döndür
+
+@app.put("/api/customers/{customer_id}", response_model=schemas.CustomerOut)
+def update_customer(customer_id: int, customer_update: schemas.CustomerUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Müşteri bilgilerini günceller"""
+    logger.info(f"✏️ Updating customer ID: {customer_id} (User: {current_user.email})")
+    
+    customer = db.query(models.Customer).filter(models.Customer.id == customer_id, models.Customer.owner_id == current_user.id).first()  # Müşteriyi ID ve sahip ile bul
+    if not customer:  # Müşteri bulunamadıysa
+        logger.warning(f"❌ Customer not found: ID {customer_id} (User: {current_user.email})")
+        raise HTTPException(status_code=404, detail="Customer not found")  # 404 hatası
+    
+    # Sadece sağlanan alanları güncelle
+    update_data = customer_update.dict(exclude_unset=True)  # Sadece sağlanan alanları al
+    for field, value in update_data.items():  # Her alan için
+        setattr(customer, field, value)  # Müşteri nesnesini güncelle
+    
+    db.commit()  # Değişiklikleri kaydet
+    db.refresh(customer)  # Müşteriyi yenile
+    
+    logger.info(f"✅ Customer updated: {customer.name} (ID: {customer.id})")
+    return customer  # Güncellenmiş müşteriyi döndür
 
 @app.delete("/api/customers/{customer_id}", status_code=204)
 def delete_customer(customer_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):

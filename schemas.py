@@ -41,10 +41,19 @@ class CustomerBase(BaseModel):
     email: Optional[EmailStr] = None  # E-posta, isteğe bağlı
     phone: Optional[str] = None  # Telefon, isteğe bağlı
     company: Optional[str] = None  # Şirket, isteğe bağlı
+    status: Optional[str] = "Active"  # Müşteri durumu, varsayılan "Active"
 
 class CustomerCreate(CustomerBase):
     """Müşteri oluşturma şeması - yeni müşteri ekleme için"""
     pass  # Temel şemadan tüm alanları al
+
+class CustomerUpdate(BaseModel):
+    """Müşteri güncelleme şeması - müşteri düzenleme için"""
+    name: Optional[str] = None  # Müşteri adı, isteğe bağlı
+    email: Optional[EmailStr] = None  # E-posta, isteğe bağlı
+    phone: Optional[str] = None  # Telefon, isteğe bağlı
+    company: Optional[str] = None  # Şirket, isteğe bağlı
+    status: Optional[str] = None  # Müşteri durumu, isteğe bağlı
 
 class CustomerOut(CustomerBase):
     """Müşteri çıktı şeması - müşteri bilgilerini döndürmek için"""

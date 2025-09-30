@@ -25,6 +25,7 @@ class Customer(Base):
     email = Column(String, nullable=True)  # E-posta, isteğe bağlı
     phone = Column(String, nullable=True)  # Telefon, isteğe bağlı
     company = Column(String, nullable=True)  # Şirket, isteğe bağlı
+    status = Column(String, nullable=True, default="Active")  # Müşteri durumu, varsayılan "Active"
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Sahip kullanıcı ID'si, yabancı anahtar
     created_at = Column(DateTime(timezone=True), server_default=func.now())  # Oluşturulma tarihi, otomatik
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())  # Güncellenme tarihi, otomatik
