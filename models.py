@@ -1,9 +1,26 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, func  # Veritabanı sütun türleri ve fonksiyonlar
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, func, Enum  # Veritabanı sütun türleri ve fonksiyonlar
 from sqlalchemy.ext.declarative import declarative_base  # Model taban sınıfı için
 from sqlalchemy.orm import relationship  # Tablolar arası ilişkiler için
+import enum  # Python enum desteği
 
 # Tüm model sınıfları için temel sınıf
 Base = declarative_base()
+
+# Kullanıcı rolleri enum
+class UserRole(enum.Enum):
+    """Kullanıcı rolleri"""
+    BASIC_USER = "basic_user"        # Temel kullanıcı - sadece kendi verilerini görür
+    PREMIUM_USER = "premium_user"    # Premium kullanıcı - müşteri ekleyebilir, gelişmiş özellikler
+    ADMIN = "admin"                  # Admin - tüm kullanıcıları yönetebilir
+
+# Müşteri durumları enum
+class CustomerStatus(enum.Enum):
+    """Müşteri durumları"""
+    ACTIVE = "Active"
+    INACTIVE = "Inactive"
+    LEAD = "Lead"
+    PROSPECT = "Prospect"
+    CONVERTED = "Converted"
 
 class User(Base):
     """Kullanıcı modeli - sistem kullanıcılarını temsil eder"""
@@ -12,7 +29,10 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)  # E-posta, benzersiz, indeksli, zorunlu
     hashed_password = Column(String, nullable=False)  # Hash'lenmiş şifre, zorunlu
     full_name = Column(String, nullable=True)  # Tam ad, isteğe bağlı
+    role = Column(Enum(UserRole), default=UserRole.BASIC_USER, nullable=False)  # Kullanıcı rolü, varsayılan basic_user
+    is_active = Column(String, default="true", nullable=False)  # Kullanıcı aktif mi (true/false string)
     created_at = Column(DateTime(timezone=True), server_default=func.now())  # Oluşturulma tarihi, otomatik
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())  # Güncellenme tarihi, otomatik
 
     # İlişkiler - bir kullanıcının birden fazla müşterisi olabilir
     customers = relationship("Customer", back_populates="owner")
@@ -26,7 +46,7 @@ class Customer(Base):
     email = Column(String, nullable=True)  # E-posta, isteğe bağlı
     phone = Column(String, nullable=True)  # Telefon, isteğe bağlı
     company = Column(String, nullable=True)  # Şirket, isteğe bağlı
-    status = Column(String, nullable=True, default="Active")  # Müşteri durumu, varsayılan "Active"
+    status = Column(Enum(CustomerStatus), default=CustomerStatus.ACTIVE, nullable=False)  # Müşteri durumu, varsayılan "Active"
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Sahip kullanıcı ID'si, yabancı anahtar
     created_at = Column(DateTime(timezone=True), server_default=func.now())  # Oluşturulma tarihi, otomatik
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())  # Güncellenme tarihi, otomatik

@@ -7,17 +7,29 @@ let currentTheme = localStorage.getItem('theme') || 'light'; // Theme state
 // DOM Elements
 const modalBackdrop = document.getElementById('modalBackdrop'); // Modal arka planı
 
-// API endpoints
+// API endpoints - Updated for Router structure
 const API_URL = '/api';  // API endpoint prefix
 const endpoints = {
-    login: `${API_URL}/token`, // Login endpoint
-    refresh: `${API_URL}/refresh`, // Refresh token endpoint
-    register: `${API_URL}/register`, // Register endpoint
+    // Authentication endpoints (moved to /api/auth)
+    login: `${API_URL}/auth/token`, // Login endpoint
+    refresh: `${API_URL}/auth/refresh`, // Refresh token endpoint
+    register: `${API_URL}/auth/register`, // Register endpoint
+    logout: `${API_URL}/auth/logout`, // Logout endpoint
+    me: `${API_URL}/auth/me`, // Current user endpoint
+    myTokens: `${API_URL}/auth/me/tokens`, // User tokens endpoint
+    
+    // Customer endpoints (unchanged)
     customers: `${API_URL}/customers`, // Customers endpoint
     customer: (id) => `${API_URL}/customers/${id}`, // Customer endpoint
+    
+    // Notes endpoints (unchanged)
     notes: (customerId) => `${API_URL}/customers/${customerId}/notes`, // Notes endpoint
     note: (customerId, noteId) => `${API_URL}/customers/${customerId}/notes/${noteId}`, // Note endpoint
-    myTokens: `${API_URL}/me/tokens`, // User tokens endpoint
+    
+    // System endpoints (moved to /api/system)
+    health: `${API_URL}/system/health`, // Health check endpoint
+    debug: `${API_URL}/system/debug/database`, // Debug endpoint
+    stats: `${API_URL}/system/stats`, // System stats endpoint
 };
 
 // API Functions
@@ -305,7 +317,7 @@ async function logout() {
         // Call backend logout endpoint if token exists
         if (token) {
             try {
-                await fetchAPI('/api/logout', {
+                await fetchAPI(endpoints.logout, {
                     method: 'POST'
                 });
             } catch (error) {

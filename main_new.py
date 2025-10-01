@@ -16,7 +16,7 @@ import models
 from database import engine
 
 # Routers
-from routers import auth_router, customers_router, notes_router, system_router, admin_router
+from routers import auth_router, customers_router, notes_router, system_router
 
 # Logging konfigürasyonu
 logging.basicConfig(
@@ -117,10 +117,10 @@ async def global_exception_handler(request, exc: Exception):
     logger.error(f"Traceback: {traceback.format_exc()}")
     
     return {
-            "detail": "Internal server error",
-            "error": str(exc),
-            "path": str(request.url)
-        }
+        "detail": "Internal server error",
+        "error": str(exc),
+        "path": str(request.url)
+    }
 
 # Statik dosyaları servis et
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -155,7 +155,6 @@ app.include_router(auth_router)
 app.include_router(customers_router)
 app.include_router(notes_router)
 app.include_router(system_router)
-app.include_router(admin_router)
 
 # Backward compatibility için eski endpoint'leri yönlendir
 @app.get("/api/health")
@@ -177,10 +176,9 @@ async def startup_event():
     logger.info("🚀 FastCRM starting up...")
     logger.info("📊 Router endpoints loaded:")
     logger.info("  🔐 Authentication: /api/auth/*")
-    logger.info("  👥 Customers: /api/customers/* (Premium+ required)")
+    logger.info("  👥 Customers: /api/customers/*")
     logger.info("  📝 Notes: /api/customers/*/notes/*")
     logger.info("  🛠️ System: /api/system/*")
-    logger.info("  👑 Admin: /api/admin/* (Admin only)")
     logger.info("✅ FastCRM ready!")
 
 # Shutdown event

@@ -1,6 +1,22 @@
 from pydantic import BaseModel, EmailStr, validator  # Veri doğrulama ve e-posta formatı için
 from typing import Optional, List  # Tip belirteçleri için
 from datetime import datetime  # Tarih ve zaman işlemleri için
+from enum import Enum  # Enum desteği için
+
+# --- Enum Şemaları ---
+class UserRoleEnum(str, Enum):
+    """Kullanıcı rolleri enum"""
+    BASIC_USER = "basic_user"
+    PREMIUM_USER = "premium_user"
+    ADMIN = "admin"
+
+class CustomerStatusEnum(str, Enum):
+    """Müşteri durumları enum"""
+    ACTIVE = "Active"
+    INACTIVE = "Inactive"
+    LEAD = "Lead"
+    PROSPECT = "Prospect"
+    CONVERTED = "Converted"
 
 # --- Kullanıcı Şemaları ---
 class UserCreate(BaseModel):
@@ -23,10 +39,19 @@ class UserOut(BaseModel):
     id: int  # Kullanıcı ID'si
     email: EmailStr  # E-posta adresi
     full_name: Optional[str]  # Tam ad
+    role: UserRoleEnum  # Kullanıcı rolü
+    is_active: str  # Kullanıcı aktif mi
     created_at: Optional[datetime]  # Oluşturulma tarihi
+    updated_at: Optional[datetime]  # Güncellenme tarihi
 
     class Config:
         from_attributes = True  # ORM nesnelerinden veri alabilir
+
+class UserUpdate(BaseModel):
+    """Kullanıcı güncelleme şeması - admin tarafından kullanılır"""
+    full_name: Optional[str] = None
+    role: Optional[UserRoleEnum] = None
+    is_active: Optional[str] = None
 
 # --- Token Şemaları ---
 class Token(BaseModel):
@@ -61,7 +86,7 @@ class CustomerBase(BaseModel):
     email: Optional[EmailStr] = None  # E-posta, isteğe bağlı
     phone: Optional[str] = None  # Telefon, isteğe bağlı
     company: Optional[str] = None  # Şirket, isteğe bağlı
-    status: Optional[str] = "Active"  # Müşteri durumu, varsayılan "Active"
+    status: Optional[CustomerStatusEnum] = CustomerStatusEnum.ACTIVE  # Müşteri durumu, varsayılan "Active"
 
 class CustomerCreate(CustomerBase):
     """Müşteri oluşturma şeması - yeni müşteri ekleme için"""
@@ -73,7 +98,7 @@ class CustomerUpdate(BaseModel):
     email: Optional[EmailStr] = None  # E-posta, isteğe bağlı
     phone: Optional[str] = None  # Telefon, isteğe bağlı
     company: Optional[str] = None  # Şirket, isteğe bağlı
-    status: Optional[str] = None  # Müşteri durumu, isteğe bağlı
+    status: Optional[CustomerStatusEnum] = None  # Müşteri durumu, isteğe bağlı
 
 class CustomerOut(CustomerBase):
     """Müşteri çıktı şeması - müşteri bilgilerini döndürmek için"""
