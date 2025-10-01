@@ -4,6 +4,8 @@ A modern, secure, and scalable FastAPI-based CRM application with role-based acc
 
 ## ✨ Features
 
+*** ### Before start the project remove the "crm.db" file ### ***
+
 ### 🔐 Advanced Authentication
 - JWT-based secure user registration and login
 - Password hashing with bcrypt
