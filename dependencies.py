@@ -3,8 +3,8 @@ FastCRM Dependencies
 Ortak bağımlılıklar ve yardımcı fonksiyonlar
 """
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Optional
 import models
@@ -163,3 +163,59 @@ def check_user_permissions(current_user: models.User, required_role: models.User
     required_level = role_hierarchy.get(required_role, 0)
     
     return user_level >= required_level
+
+# OAuth2 Client Authentication
+def get_oauth2_client(db: Session, client_id: str, client_secret: str) -> Optional[models.OAuth2Client]:
+    """OAuth2 client credentials doğrula"""
+    return db.query(models.OAuth2Client).filter(
+        models.OAuth2Client.client_id == client_id,
+        models.OAuth2Client.client_secret == client_secret,
+        models.OAuth2Client.is_active == "true"
+    ).first()
+
+def get_current_user_oauth2(
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+    db: Session = Depends(get_db)
+) -> models.User:
+    """OAuth2 Bearer token ile kullanıcı doğrula"""
+    token = credentials.credentials
+    
+    # Token'ı çöz
+    payload = decode_access_token(token)
+    if payload is None:
+        logger.warning("❌ Invalid OAuth2 token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Kullanıcıyı al
+    user_id = payload.get("sub")
+    if user_id is None:
+        logger.warning("❌ Token missing user ID")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    user = get_user(db, int(user_id))
+    if user is None:
+        logger.warning(f"❌ User not found: {user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if user.is_active != "true":
+        logger.warning(f"❌ Inactive user: {user.email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Inactive user",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    logger.info(f"✅ OAuth2 authenticated user: {user.email}")
+    return user

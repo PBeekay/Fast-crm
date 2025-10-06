@@ -7,6 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import logging
 
 import models
@@ -22,6 +25,11 @@ from dependencies import (
     cleanup_expired_tokens
 )
 from auth import get_password_hash, create_token_pair
+import secrets
+import uuid
+
+# SECURITY: Rate limiter for auth endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 # Router oluştur
 router = APIRouter(
@@ -32,9 +40,10 @@ router = APIRouter(
 
 logger = logging.getLogger("fastcrm")
 
-@router.post("/register", response_model=schemas.UserOut)
-def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
-    """Kullanıcı kaydı - yeni kullanıcı oluşturur"""
+@router.post("/register", response_model=dict)
+@limiter.limit("5/minute")  # SECURITY: Rate limit registration attempts
+def register(request: Request, user_in: schemas.UserCreate, db: Session = Depends(get_db)):
+    """Kullanıcı kaydı - yeni kullanıcı oluşturur ve OAuth2 client credentials verir"""
     logger.info(f"📝 User registration attempt: {user_in.email}")
     
     existing = get_user_by_email(db, user_in.email)
@@ -42,7 +51,12 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
         logger.warning(f"❌ Registration failed - Email already exists: {user_in.email}")
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    hashed = get_password_hash(user_in.password)
+    try:
+        hashed = get_password_hash(user_in.password)
+    except ValueError as e:
+        logger.warning(f"❌ Registration failed - Password validation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
     user = models.User(
         email=user_in.email, 
         hashed_password=hashed, 
@@ -52,10 +66,93 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     
+    # OAuth2 Client Credentials oluştur
+    client_id = f"fcrm_{uuid.uuid4().hex[:16]}"  # FastCRM prefix + 16 karakter
+    client_secret = secrets.token_urlsafe(32)  # 32 karakter güvenli secret
+    
+    oauth2_client = models.OAuth2Client(
+        client_id=client_id,
+        client_secret=client_secret,
+        user_id=user.id,
+        is_active="true"
+    )
+    db.add(oauth2_client)
+    db.commit()
+    db.refresh(oauth2_client)
+    
     logger.info(f"✅ User registered successfully: {user.email} (ID: {user.id})")
-    return user
+    logger.info(f"🔑 OAuth2 Client created: {client_id}")
+    
+    return {
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role.value,
+            "is_active": user.is_active,
+            "created_at": user.created_at
+        },
+        "oauth2_client": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "message": "Save these credentials securely! You'll need them to access the API."
+        }
+    }
+
+@router.post("/oauth2/token", response_model=schemas.Token)
+@limiter.limit("20/minute")  # SECURITY: Rate limit OAuth2 token requests
+def get_oauth2_token(
+    request: Request,
+    client_credentials: schemas.OAuth2ClientCredentials,
+    db: Session = Depends(get_db)
+):
+    """OAuth2 Client Credentials flow - API erişimi için token alır"""
+    logger.info(f"🔑 OAuth2 token request for client: {client_credentials.client_id}")
+    
+    # OAuth2 client'ı doğrula
+    oauth2_client = db.query(models.OAuth2Client).filter(
+        models.OAuth2Client.client_id == client_credentials.client_id,
+        models.OAuth2Client.client_secret == client_credentials.client_secret,
+        models.OAuth2Client.is_active == "true"
+    ).first()
+    
+    if not oauth2_client:
+        logger.warning(f"❌ Invalid OAuth2 client credentials: {client_credentials.client_id}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid client credentials"
+        )
+    
+    # Kullanıcıyı al
+    user = db.query(models.User).filter(
+        models.User.id == oauth2_client.user_id,
+        models.User.is_active == "true"
+    ).first()
+    
+    if not user:
+        logger.warning(f"❌ User not found or inactive for OAuth2 client: {client_credentials.client_id}")
+        raise HTTPException(
+            status_code=401,
+            detail="User not found or inactive"
+        )
+    
+    # Token çifti oluştur
+    token_pair = create_token_pair(user.id)
+    
+    # Refresh token'ı veritabanına kaydet
+    create_refresh_token_db(db, user.id, token_pair["refresh_token"])
+    
+    # OAuth2 client'ın son kullanım tarihini güncelle
+    from datetime import datetime
+    oauth2_client.last_used_at = datetime.utcnow()
+    db.commit()
+    
+    logger.info(f"✅ OAuth2 token issued for user: {user.email} (Client: {client_credentials.client_id})")
+    
+    return token_pair
 
 @router.post("/token", response_model=schemas.Token)
+@limiter.limit("10/minute")  # SECURITY: Rate limit login attempts
 def login_for_access_token(
     request: Request, 
     form_data: OAuth2PasswordRequestForm = Depends(), 

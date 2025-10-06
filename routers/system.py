@@ -3,7 +3,7 @@ System Router
 Sistem yönetimi ve debug endpoint'leri
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import logging
 import time
@@ -65,7 +65,11 @@ async def health_check():
 
 @router.get("/debug/database")
 async def debug_database():
-    """Database debug information"""
+    """Database debug information - SECURITY: Only available in development"""
+    import os
+    if os.getenv("ENVIRONMENT") == "production":
+        raise HTTPException(status_code=404, detail="Debug endpoint not available in production")
+    
     try:
         db_file_path = "crm.db"
         

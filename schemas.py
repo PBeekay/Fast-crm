@@ -12,11 +12,11 @@ class UserRoleEnum(str, Enum):
 
 class CustomerStatusEnum(str, Enum):
     """Müşteri durumları enum"""
-    ACTIVE = "Active"
-    INACTIVE = "Inactive"
-    LEAD = "Lead"
-    PROSPECT = "Prospect"
-    CONVERTED = "Converted"
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    LEAD = "LEAD"
+    PROSPECT = "PROSPECT"
+    CONVERTED = "CONVERTED"
 
 # --- Kullanıcı Şemaları ---
 class UserCreate(BaseModel):
@@ -30,8 +30,8 @@ class UserCreate(BaseModel):
         """Şifre doğrulama - bcrypt 72 byte limiti için"""
         if len(v.encode('utf-8')) > 72:
             raise ValueError('Password cannot be longer than 72 characters due to security limitations')
-        if len(v) < 6:
-            raise ValueError('Password must be at least 6 characters long')
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
         return v
 
 class UserOut(BaseModel):
@@ -125,3 +125,27 @@ class NoteOut(BaseModel):
 
     class Config:
         from_attributes = True  # ORM nesnelerinden veri alabilir
+
+# --- OAuth2 Client Şemaları ---
+class OAuth2ClientCreate(BaseModel):
+    """OAuth2 Client oluşturma şeması"""
+    pass  # Otomatik oluşturulur
+
+class OAuth2ClientOut(BaseModel):
+    """OAuth2 Client çıktı şeması"""
+    id: int  # Client ID'si
+    client_id: str  # Client ID
+    client_secret: str  # Client Secret
+    user_id: int  # Kullanıcı ID'si
+    is_active: str  # Client aktif mi
+    created_at: Optional[datetime]  # Oluşturulma tarihi
+    last_used_at: Optional[datetime]  # Son kullanım tarihi
+    expires_at: Optional[datetime]  # Son kullanma tarihi
+
+    class Config:
+        from_attributes = True  # ORM nesnelerinden veri alabilir
+
+class OAuth2ClientCredentials(BaseModel):
+    """OAuth2 Client credentials şeması - sadece client_id ve client_secret"""
+    client_id: str  # Client ID
+    client_secret: str  # Client Secret

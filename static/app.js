@@ -2,6 +2,7 @@
 let token = localStorage.getItem('token'); // Access token'ı localStorage'dan al
 let refreshToken = localStorage.getItem('refreshToken'); // Refresh token'ı localStorage'dan al
 let currentUser = null;
+let selectedNotesCustomerId = null; // currently selected customer for notes view
 let currentTheme = localStorage.getItem('theme') || 'light'; // Theme state
 
 // DOM Elements
@@ -56,6 +57,14 @@ async function createNote(customerId, noteData) { // Note oluştur
     return response;
 }
 
+async function updateNote(customerId, noteId, noteData) { // Note güncelle
+    const response = await fetchAPI(endpoints.note(customerId, noteId), {
+        method: 'PUT',
+        body: JSON.stringify(noteData)
+    });
+    return response;
+}
+
 
 // Customer Search
 let customerSearchTimeout;
@@ -100,6 +109,8 @@ const elements = {
     recentCustomersList: document.getElementById('recentCustomersList'),
     addCustomerBtn: document.getElementById('addCustomerBtn'),
     addNoteBtn: document.getElementById('addNoteBtn'),
+    refreshDataBtn: document.getElementById('refreshDataBtn'),
+    refreshNotesBtn: document.getElementById('refreshNotesBtn'),
     addCustomerModal: document.getElementById('addCustomerModal'),
     addNoteModal: document.getElementById('addNoteModal'),
     customerName: document.getElementById('customerName'),
@@ -255,7 +266,8 @@ async function fetchAPI(endpoint, options = {}) {
         }
     } catch (error) {
         console.error('API Error:', error);
-        showNotification(error.message || 'Unexpected error', 'error');
+        const msg = typeof error?.message === 'string' ? error.message : JSON.stringify(error);
+        showNotification(msg || 'Unexpected error', 'error');
         return null;
     }
 }
@@ -470,6 +482,21 @@ function showNotesTab() {
 }
 
 // Data Loading Functions
+async function refreshAllData() {
+    // Refresh all data across the application
+    try {
+        await Promise.all([
+            loadDashboard(),
+            loadCustomers(),
+            loadNotes()
+        ]);
+        showNotification('Data refreshed successfully', 'success');
+    } catch (error) {
+        console.error('Failed to refresh data:', error);
+        showNotification('Failed to refresh data', 'error');
+    }
+}
+
 async function loadDashboard() {
     try {
         // Load customers for dashboard
@@ -539,7 +566,9 @@ async function loadCustomers(searchTerm = '') {
 
 async function loadNotes() {
     try {
-        const customerId = elements.customerSelect.value;
+        // Use remembered selection when header select not available
+        const headerSelect = elements.customerSelect; // may be null
+        const customerId = (headerSelect && headerSelect.value) ? headerSelect.value : (selectedNotesCustomerId || '');
         let notes = [];
         let customerName = '';
         
@@ -593,8 +622,8 @@ async function viewNotes(customerId) {
         // Switch to notes tab
         elements.notesTab.click();
         
-        // Select the customer in the dropdown
-        elements.customerSelect.value = customerId;
+        // Remember current selection
+        selectedNotesCustomerId = customerId;
         
         // Load notes for this customer
         await loadNotes();
@@ -663,9 +692,14 @@ function renderNotes(notes, customerName = '') {
             <div class="note-card">
                 <div class="note-header">
                     <h4>${displayName}</h4>
-                    <button class="btn btn-icon" onclick="deleteNote(${note.customer_id}, ${note.id})" title="Delete Note">
+                    <div>
+                        <button class="btn btn-icon" onclick="startEditNote(${note.customer_id}, ${note.id}, ${JSON.stringify(note.content).replace(/"/g, '&quot;')})" title="Edit Note">
+                            <i class="ri-edit-line"></i>
+                        </button>
+                        <button class="btn btn-icon" onclick="deleteNote(${note.customer_id}, ${note.id})" title="Delete Note">
                         <i class="ri-delete-bin-line"></i>
-                    </button>
+                        </button>
+                    </div>
                 </div>
                 <div class="note-content">
                     ${note.content}
@@ -682,11 +716,14 @@ function renderNotes(notes, customerName = '') {
 }
 
 function updateCustomerSelect(customers) {
+    // Header customerSelect may not exist (we moved selection into modal)
+    if (!elements.customerSelect) {
+        return; // Nothing to update
+    }
     if (!customers || !Array.isArray(customers)) {
         elements.customerSelect.innerHTML = '<option value="">No customers available</option>';
         return;
     }
-    
     elements.customerSelect.innerHTML = `
         <option value="">All Customers</option>
         ${customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
@@ -711,7 +748,7 @@ async function addCustomer() {
             email: elements.customerEmail.value.trim(),
             phone: elements.customerPhone.value.trim(),
             company: elements.customerCompany.value.trim(),
-            status: elements.customerStatus.value
+            status: (elements.customerStatus.value || '').toUpperCase()
         };
         
         console.log('Customer data:', customerData);
@@ -740,7 +777,13 @@ async function addCustomer() {
         if (response) {
             elements.addCustomerModal.classList.add('hidden');
             modalBackdrop.classList.add('hidden');
-            await loadCustomers();
+            
+            // Refresh all data after add/update
+            await Promise.all([
+                loadCustomers(),
+                loadDashboard(),
+                loadNotes()
+            ]);
             
             const message = customerId ? 'Customer updated successfully' : 'Customer added successfully';
             showNotification(message, 'success');
@@ -786,7 +829,12 @@ async function deleteCustomer(id) {
         });
 
         if (response !== null) {
-            await loadCustomers();
+            // Refresh all data after deletion
+            await Promise.all([
+                loadCustomers(),
+                loadDashboard(),
+                loadNotes()
+            ]);
             showNotification('Customer deleted successfully', 'success');
         }
     } catch (error) {
@@ -826,7 +874,9 @@ async function editCustomer(id) {
 // Note Functions
 async function addNote() {
     try {
-        const customerId = elements.customerSelect.value;
+        // Prefer modal's customer selector; fallback to header select
+        const modalSelect = document.getElementById('noteCustomerSelect');
+        const customerId = (modalSelect && modalSelect.value) ? modalSelect.value : elements.customerSelect?.value;
         if (!customerId) {
             showNotification('Please select a customer', 'error');
             return;
@@ -846,15 +896,34 @@ async function addNote() {
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<i class="ri-loader-4-line"></i> Saving...';
 
-        const response = await createNote(customerId, noteData);
+        // If editing, call update; else create
+        const isEditing = elements.addNoteModal.dataset.editing === 'true';
+        const existingNoteId = elements.addNoteModal.dataset.noteId;
+        let response;
+        if (isEditing && existingNoteId) {
+            response = await updateNote(customerId, existingNoteId, noteData);
+        } else {
+            response = await createNote(customerId, noteData);
+        }
         if (response) {
             elements.addNoteModal.classList.add('hidden');
             modalBackdrop.classList.add('hidden');
             
             // Reset form
             elements.noteContent.value = '';
+            const modalSelect2 = document.getElementById('noteCustomerSelect');
+            if (modalSelect2) modalSelect2.value = '';
+            // Clear editing context
+            delete elements.addNoteModal.dataset.editing;
+            delete elements.addNoteModal.dataset.noteId;
+            delete elements.addNoteModal.dataset.customerId;
             
-            await loadNotes();
+            // Refresh all data after adding note
+            await Promise.all([
+                loadNotes(),
+                loadDashboard(),
+                loadCustomers()
+            ]);
             showNotification('Note added successfully', 'success');
         }
     } catch (error) {
@@ -876,11 +945,50 @@ async function deleteNote(customerId, noteId) {
         });
 
         if (response !== null) {
-            await loadNotes();
+            // Refresh all data after deletion
+            await Promise.all([
+                loadNotes(),
+                loadDashboard(),
+                loadCustomers()
+            ]);
             showNotification('Note deleted successfully', 'success');
         }
     } catch (error) {
         showNotification(error.message || 'Failed to delete note', 'error');
+    }
+}
+
+// Start editing a note: reuse the Add Note modal
+function startEditNote(customerId, noteId, content) {
+    try {
+        // Open modal
+        elements.addNoteModal.classList.remove('hidden');
+        modalBackdrop.classList.remove('hidden');
+        
+        // Fill fields
+        const modalSelect = document.getElementById('noteCustomerSelect');
+        if (modalSelect) {
+            // Ensure the customer is present in the dropdown
+            if (![...modalSelect.options].some(o => o.value == String(customerId))) {
+                const opt = document.createElement('option');
+                opt.value = customerId;
+                opt.textContent = `Customer #${customerId}`;
+                modalSelect.appendChild(opt);
+            }
+            modalSelect.value = String(customerId);
+        }
+        elements.noteContent.value = content || '';
+        
+        // Store editing context on modal element
+        elements.addNoteModal.dataset.editing = 'true';
+        elements.addNoteModal.dataset.customerId = String(customerId);
+        elements.addNoteModal.dataset.noteId = String(noteId);
+        
+        // Update button text
+        const saveBtn = document.getElementById('saveNoteBtn');
+        if (saveBtn) saveBtn.innerHTML = '<i class="ri-save-line"></i> Update Note';
+    } catch (e) {
+        showNotification('Failed to open edit note dialog', 'error');
     }
 }
 
@@ -937,14 +1045,42 @@ elements.addCustomerBtn.addEventListener('click', () => {
     }
 
     if (elements.addNoteBtn) {
-elements.addNoteBtn.addEventListener('click', () => {
-    if (elements.customerSelect.value) {
-        elements.addNoteModal.classList.remove('hidden');
-        modalBackdrop.classList.remove('hidden');
-    } else {
-        alert('Please select a customer first');
+        elements.addNoteBtn.addEventListener('click', async () => {
+            // Open modal regardless of selection
+            elements.addNoteModal.classList.remove('hidden');
+            modalBackdrop.classList.remove('hidden');
+            
+            // Populate customer dropdown inside modal
+            try {
+                const customers = await fetchAPI(endpoints.customers);
+                const select = document.getElementById('noteCustomerSelect');
+                if (select) {
+                    select.innerHTML = '<option value="">Select customer...</option>';
+                    if (Array.isArray(customers)) {
+                        customers.forEach(c => {
+                            const opt = document.createElement('option');
+                            opt.value = c.id;
+                            opt.textContent = c.name || `Customer #${c.id}`;
+                            select.appendChild(opt);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to load customers for note modal');
+            }
+        });
     }
-});
+
+    // Refresh buttons
+    if (elements.refreshDataBtn) {
+        elements.refreshDataBtn.addEventListener('click', refreshAllData);
+    }
+
+    if (elements.refreshNotesBtn) {
+        elements.refreshNotesBtn.addEventListener('click', async () => {
+            await loadNotes();
+            showNotification('Notes refreshed', 'success');
+        });
     }
 
     const saveCustomerBtn = document.getElementById('saveCustomerBtn');
@@ -1043,6 +1179,14 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         if (elements.themeToggle && !elements.themeToggle.closest('.hidden')) {
             elements.themeToggle.click();
+        }
+    }
+    
+    // Ctrl+R for refresh data
+    if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        if (elements.refreshDataBtn && !elements.refreshDataBtn.closest('.hidden')) {
+            elements.refreshDataBtn.click();
         }
     }
 });

@@ -16,11 +16,11 @@ class UserRole(enum.Enum):
 # Müşteri durumları enum
 class CustomerStatus(enum.Enum):
     """Müşteri durumları"""
-    ACTIVE = "Active"
-    INACTIVE = "Inactive"
-    LEAD = "Lead"
-    PROSPECT = "Prospect"
-    CONVERTED = "Converted"
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    LEAD = "LEAD"
+    PROSPECT = "PROSPECT"
+    CONVERTED = "CONVERTED"
 
 class User(Base):
     """Kullanıcı modeli - sistem kullanıcılarını temsil eder"""
@@ -37,6 +37,7 @@ class User(Base):
     # İlişkiler - bir kullanıcının birden fazla müşterisi olabilir
     customers = relationship("Customer", back_populates="owner")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")  # Refresh token'lar ile ilişki
+    oauth2_clients = relationship("OAuth2Client", back_populates="user", cascade="all, delete-orphan")  # OAuth2 client'lar ile ilişki
 
 class Customer(Base):
     """Müşteri modeli - CRM müşterilerini temsil eder"""
@@ -81,3 +82,18 @@ class RefreshToken(Base):
 
     # İlişkiler
     user = relationship("User", back_populates="refresh_tokens")  # Kullanıcı ile ilişki
+
+class OAuth2Client(Base):
+    """OAuth2 Client Credentials - API erişimi için"""
+    __tablename__ = "oauth2_clients"  # Veritabanı tablo adı
+    id = Column(Integer, primary_key=True, index=True)  # Birincil anahtar, indeksli
+    client_id = Column(String, unique=True, index=True, nullable=False)  # Client ID, benzersiz, indeksli
+    client_secret = Column(String, nullable=False)  # Client Secret, zorunlu
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Kullanıcı ID'si, yabancı anahtar
+    is_active = Column(String, default="true", nullable=False)  # Client aktif mi (true/false string)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # Oluşturulma tarihi, otomatik
+    last_used_at = Column(DateTime(timezone=True), nullable=True)  # Son kullanım tarihi
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # Son kullanma tarihi (opsiyonel)
+
+    # İlişkiler
+    user = relationship("User", back_populates="oauth2_clients")  # Kullanıcı ile ilişki

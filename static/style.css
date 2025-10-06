@@ -407,6 +407,12 @@ textarea {
     font-size: 14px;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
 /* Dashboard Stats */
 .dashboard-stats {
     display: grid;
@@ -648,7 +654,7 @@ tr:hover td {
 /* Notifications */
 .notification {
     position: fixed;
-    top: 20px;
+    bottom: 20px;
     right: 20px;
     padding: 16px 24px;
     background: white;
@@ -683,6 +689,31 @@ tr:hover td {
 .notification-info {
     background: #dbeafe;
     color: #1e40af;
+}
+
+/* Dark theme notification styles */
+[data-theme="dark"] .notification {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .notification-success {
+    background: #064e3b;
+    color: #6ee7b7;
+    border-color: #065f46;
+}
+
+[data-theme="dark"] .notification-error {
+    background: #7f1d1d;
+    color: #fca5a5;
+    border-color: #991b1b;
+}
+
+[data-theme="dark"] .notification-info {
+    background: #1e3a8a;
+    color: #93c5fd;
+    border-color: #1e40af;
 }
 
 /* No Data State */

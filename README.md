@@ -187,7 +187,7 @@ fastcrm/
 ├── make_admin.py        # Quick admin promotion utility
 ├── requirements.txt     # Python dependencies
 ├── env.example          # Environment variables template
-├── .gitignore           # Git ignore rules
+├── .gitignore           # Git ignore rules (added automatically when publishing)
 ├── README.md            # This documentation
 ├── routers/             # Modular API routers
 │   ├── __init__.py      # Router exports

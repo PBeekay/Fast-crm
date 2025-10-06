@@ -3,10 +3,17 @@ FastCRM Main Application
 Modüler FastAPI uygulaması - Router tabanlı yapı
 """
 
-from fastapi import FastAPI
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import logging
 import time
 import traceback
@@ -36,6 +43,9 @@ except Exception as e:
     logger.error(f"❌ Database creation failed: {e}")
     raise e
 
+# SECURITY: Rate limiting setup
+limiter = Limiter(key_func=get_remote_address)
+
 # FastAPI uygulamasını oluştur
 app = FastAPI(
     title="🚀 FastCRM",
@@ -45,15 +55,19 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware - Allow requests from other devices
+# SECURITY: Add rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS middleware - SECURITY: Restrict origins in production
+import os
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+if os.getenv("ENVIRONMENT") == "development":
+    ALLOWED_ORIGINS.extend(["http://localhost:8000", "http://127.0.0.1:8000"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8000",
-        "http://127.0.0.1:8000", 
-        "http://0.0.0.0:8000",
-        "*"  # Allow all origins for development
-    ],
+    allow_origins=ALLOWED_ORIGINS,  # SECURITY: No wildcard origins
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[
@@ -61,10 +75,26 @@ app.add_middleware(
         "Authorization", 
         "Accept", 
         "Origin", 
-        "User-Agent",
+        "User-Agent", 
         "Cache-Control"
     ],
 )
+
+# SECURITY: Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses"""
+    response = await call_next(request)
+    
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self'"
+    
+    return response
 
 # Request/Response logging middleware
 @app.middleware("http")
@@ -109,16 +139,16 @@ async def log_requests(request, call_next):
     
     return response
 
-# Global exception handler
+# Global exception handler - SECURITY: Don't expose internal errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc: Exception):
     """Global exception handler to ensure JSON responses"""
     logger.error(f"❌ Unhandled exception: {str(exc)}")
     logger.error(f"Traceback: {traceback.format_exc()}")
     
+    # SECURITY: Don't expose internal error details to clients
     return {
             "detail": "Internal server error",
-            "error": str(exc),
             "path": str(request.url)
         }
 

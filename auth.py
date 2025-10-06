@@ -5,8 +5,35 @@ from passlib.context import CryptContext  # Şifre hashleme için
 import os  # Ortam değişkenleri için
 import secrets  # Güvenli rastgele string üretimi için
 
-# Gizli anahtar - ortam değişkeninden al veya varsayılan kullan (üretimde değiştir)
-SECRET_KEY = os.getenv("CRM_SECRET_KEY", "change_this_secret_in_prod")
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
+# SECURITY: Secret key management with proper validation
+# Try multiple methods to get the secret key
+SECRET_KEY = os.getenv("CRM_SECRET_KEY")
+if not SECRET_KEY:
+    # Try loading from .env file again with explicit path
+    load_dotenv(".env")
+    SECRET_KEY = os.getenv("CRM_SECRET_KEY")
+    
+if not SECRET_KEY:
+    # Fallback: try to read from .env file directly
+    try:
+        with open(".env", "r") as f:
+            for line in f:
+                if line.startswith("CRM_SECRET_KEY="):
+                    SECRET_KEY = line.split("=", 1)[1].strip()
+                    break
+    except FileNotFoundError:
+        pass
+
+if not SECRET_KEY:
+    raise ValueError("CRM_SECRET_KEY environment variable must be set for security")
+if len(SECRET_KEY) < 32:
+    raise ValueError("SECRET_KEY must be at least 32 characters long for security")
+if SECRET_KEY == "change_this_secret_in_prod":
+    raise ValueError("SECRET_KEY must be changed from default value for security")
 ALGORITHM = "HS256"  # JWT imzalama algoritması
 ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Access token geçerlilik süresi: 1 saat
 REFRESH_TOKEN_EXPIRE_DAYS = 30  # Refresh token geçerlilik süresi: 30 gün
@@ -20,27 +47,28 @@ except Exception as e:
 
 def get_password_hash(password: str) -> str:
     """Şifreyi hash'leyerek güvenli şekilde saklar"""
+    # SECURITY: Validate password length before processing
+    if len(password.encode('utf-8')) > 72:
+        raise ValueError("Password too long (max 72 characters)")
+    if len(password) < 8:
+        raise ValueError("Password too short (min 8 characters)")
+    
     try:
-        # bcrypt has a 72-byte limit, so truncate if necessary
-        if len(password.encode('utf-8')) > 72:
-            password = password[:72]  # Truncate to 72 characters
         return pwd_context.hash(password)  # Şifreyi bcrypt ile hash'le
     except Exception as e:
-        # If bcrypt fails, use a simple hash as fallback
-        import hashlib
-        return hashlib.sha256(password.encode()).hexdigest()
+        # SECURITY: No fallback to weak hashing
+        raise ValueError("Password hashing failed - please try again")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Düz metin şifre ile hash'lenmiş şifreyi karşılaştırır"""
     try:
-        # bcrypt has a 72-byte limit, so truncate if necessary
+        # SECURITY: Validate password length
         if len(plain_password.encode('utf-8')) > 72:
-            plain_password = plain_password[:72]  # Truncate to 72 characters
+            return False  # Don't truncate, reject long passwords
         return pwd_context.verify(plain_password, hashed_password)  # Şifre doğrulama
     except Exception as e:
-        # If bcrypt fails, use simple hash comparison as fallback
-        import hashlib
-        return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
+        # SECURITY: No fallback to weak verification
+        return False
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """JWT erişim token'ı oluşturur"""
