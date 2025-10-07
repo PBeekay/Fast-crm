@@ -79,7 +79,7 @@ function showOAuth2Credentials(credentials) {
                     <label>Client ID:</label>
                     <div class="credential-value">
                         <code id="client-id">${credentials.client_id}</code>
-                        <button onclick="copyToClipboard('client-id')" class="copy-btn">
+                        <button id="copy-client-id" class="copy-btn" type="button">
                             <i class="ri-file-copy-line"></i>
                         </button>
                     </div>
@@ -88,14 +88,14 @@ function showOAuth2Credentials(credentials) {
                     <label>Client Secret:</label>
                     <div class="credential-value">
                         <code id="client-secret">${credentials.client_secret}</code>
-                        <button onclick="copyToClipboard('client-secret')" class="copy-btn">
+                        <button id="copy-client-secret" class="copy-btn" type="button">
                             <i class="ri-file-copy-line"></i>
                         </button>
                     </div>
                 </div>
             </div>
             <div class="oauth2-actions">
-                <button onclick="closeOAuth2Modal()" class="btn btn-primary">
+                <button id="close-oauth2-modal" class="btn btn-primary" type="button">
                     <i class="ri-check-line"></i> I've Saved These Credentials
                 </button>
             </div>
@@ -120,23 +120,24 @@ function showOAuth2Credentials(credentials) {
             z-index: 10000;
         }
         .oauth2-modal-content {
-            background: white;
+            background: var(--bg-primary);
             border-radius: 12px;
             padding: 24px;
             max-width: 500px;
             width: 90%;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            color: var(--text-primary);
         }
         .oauth2-header {
             text-align: center;
             margin-bottom: 24px;
         }
         .oauth2-header h2 {
-            color: #1e293b;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
         .oauth2-header p {
-            color: #64748b;
+            color: var(--text-secondary);
             font-size: 14px;
         }
         .credential-item {
@@ -145,7 +146,7 @@ function showOAuth2Credentials(credentials) {
         .credential-item label {
             display: block;
             font-weight: 600;
-            color: #374151;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
         .credential-value {
@@ -154,7 +155,7 @@ function showOAuth2Credentials(credentials) {
             gap: 8px;
         }
         .credential-value code {
-            background: #f1f5f9;
+            background: var(--bg-tertiary);
             padding: 8px 12px;
             border-radius: 6px;
             font-family: 'Courier New', monospace;
@@ -163,7 +164,7 @@ function showOAuth2Credentials(credentials) {
             word-break: break-all;
         }
         .copy-btn {
-            background: #4f46e5;
+            background: var(--primary);
             color: white;
             border: none;
             padding: 8px;
@@ -172,7 +173,7 @@ function showOAuth2Credentials(credentials) {
             transition: background 0.2s;
         }
         .copy-btn:hover {
-            background: #4338ca;
+            background: var(--primary-dark);
         }
         .oauth2-actions {
             text-align: center;
@@ -180,20 +181,106 @@ function showOAuth2Credentials(credentials) {
         }
     `;
     document.head.appendChild(style);
+
+    // Wire up buttons programmatically to avoid scope issues
+    const copyIdBtn = document.getElementById('copy-client-id');
+    const copySecretBtn = document.getElementById('copy-client-secret');
+    const closeBtn = document.getElementById('close-oauth2-modal');
+    
+    if (copyIdBtn) {
+        copyIdBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            safeCopyFrom('client-id', copyIdBtn);
+        });
+    }
+    
+    if (copySecretBtn) {
+        copySecretBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            safeCopyFrom('client-secret', copySecretBtn);
+        });
+    }
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeOAuth2Modal();
+        });
+    }
 }
 
-function copyToClipboard(elementId) {
-    const element = document.getElementById(elementId);
-    navigator.clipboard.writeText(element.textContent).then(() => {
-        const btn = element.nextElementSibling;
+function safeCopyFrom(elementId, btn) {
+    const el = document.getElementById(elementId);
+    if (!el) {
+        console.error('Element not found:', elementId);
+        return;
+    }
+    
+    const text = el.textContent || '';
+    if (!text) {
+        console.error('No text to copy');
+        return;
+    }
+    
+    const ok = () => {
         const originalHTML = btn.innerHTML;
+        const originalBg = btn.style.background;
         btn.innerHTML = '<i class="ri-check-line"></i>';
         btn.style.background = '#10b981';
+        btn.disabled = true;
         setTimeout(() => {
             btn.innerHTML = originalHTML;
-            btn.style.background = '#4f46e5';
-        }, 2000);
-    });
+            btn.style.background = originalBg || 'var(--primary)';
+            btn.disabled = false;
+        }, 1200);
+    };
+    
+    const fail = (error) => {
+        console.error('Copy failed:', error);
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="ri-error-warning-line"></i>';
+        btn.style.background = '#ef4444';
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.style.background = 'var(--primary)';
+        }, 1200);
+    };
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(ok).catch((error) => {
+            console.warn('Clipboard API failed, trying fallback:', error);
+            fallbackCopyText(text, btn, ok, fail);
+        });
+    } else {
+        fallbackCopyText(text, btn, ok, fail);
+    }
+}
+
+function fallbackCopyText(text, btn, onDone, onFail) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        ta.style.top = '-9999px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(ta);
+        
+        if (successful) {
+            onDone();
+        } else {
+            onFail(new Error('execCommand copy failed'));
+        }
+    } catch (e) {
+        console.warn('Fallback copy failed:', e);
+        onFail(e);
+    }
 }
 
 function closeOAuth2Modal() {

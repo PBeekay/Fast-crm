@@ -27,6 +27,7 @@ async def health_check():
     """System health check endpoint"""
     try:
         # Test database connection
+        from database import SessionLocal
         db = SessionLocal()
         try:
             from sqlalchemy import text

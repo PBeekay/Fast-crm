@@ -228,14 +228,33 @@ async function fetchAPI(endpoint, options = {}) {
                 // Clone the response to avoid "body stream already read" error
                 const responseClone = response.clone();
                 const responseText = await responseClone.text();
+                console.log('=== API ERROR DEBUG ===');
+                console.log('Response status:', response.status);
+                console.log('Response statusText:', response.statusText);
                 console.log('Response text:', responseText);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
                 
                 // Try to parse as JSON
                 if (responseText) {
                     try {
                         const data = JSON.parse(responseText);
-                        if (data && (data.detail || data.message)) {
-                            message = data.detail || data.message;
+                        if (data) {
+                            // Handle different error response formats
+                            if (data.detail) {
+                                message = data.detail;
+                            } else if (data.message) {
+                                message = data.message;
+                            } else if (data.error) {
+                                message = data.error;
+                            } else if (Array.isArray(data.errors)) {
+                                message = data.errors.join(', ');
+                            } else if (data.errors && typeof data.errors === 'object') {
+                                // Handle validation errors
+                                const errorMessages = Object.values(data.errors).flat();
+                                message = errorMessages.join(', ');
+                            } else {
+                                message = `Server error (Status: ${response.status})`;
+                            }
                         }
                     } catch (parseError) {
                         console.error('JSON parse error:', parseError);
@@ -266,8 +285,45 @@ async function fetchAPI(endpoint, options = {}) {
         }
     } catch (error) {
         console.error('API Error:', error);
-        const msg = typeof error?.message === 'string' ? error.message : JSON.stringify(error);
-        showNotification(msg || 'Unexpected error', 'error');
+        let msg = 'Unexpected error';
+        
+        if (error && typeof error === 'object') {
+            if (error.message && typeof error.message === 'string') {
+                msg = error.message;
+            } else if (error.detail && typeof error.detail === 'string') {
+                msg = error.detail;
+            } else if (error.error && typeof error.error === 'string') {
+                msg = error.error;
+            } else {
+                // Try to extract meaningful information from the error object
+                const errorKeys = Object.keys(error);
+                console.log('Error object keys:', errorKeys);
+                console.log('Error object values:', Object.values(error));
+                
+                // Look for common error message fields
+                for (const key of ['message', 'detail', 'error', 'description', 'reason']) {
+                    if (error[key] && typeof error[key] === 'string') {
+                        msg = error[key];
+                        break;
+                    }
+                }
+                
+                // If no string field found, try JSON stringify
+                if (msg === 'Unexpected error') {
+                    try {
+                        msg = JSON.stringify(error);
+                    } catch (jsonError) {
+                        msg = `Error object with keys: ${errorKeys.join(', ')}`;
+                    }
+                }
+            }
+        } else if (typeof error === 'string') {
+            msg = error;
+        } else {
+            msg = `Unknown error type: ${typeof error}`;
+        }
+        
+        showNotification(msg, 'error');
         return null;
     }
 }
@@ -497,6 +553,35 @@ async function refreshAllData() {
     }
 }
 
+// Smart refresh function that refreshes based on current view
+async function refreshCurrentView() {
+    try {
+        console.log('🔄 Refreshing current view...');
+        
+        // Determine which view is currently active
+        if (!elements.dashboardSection.classList.contains('hidden')) {
+            // Dashboard is active
+            await loadDashboard();
+            console.log('✅ Dashboard refreshed');
+        } else if (!elements.customersSection.classList.contains('hidden')) {
+            // Customers page is active
+            await loadCustomers();
+            console.log('✅ Customers page refreshed');
+        } else if (!elements.notesSection.classList.contains('hidden')) {
+            // Notes page is active
+            await loadNotes();
+            console.log('✅ Notes page refreshed');
+        }
+        
+        // Always refresh dashboard stats in background
+        loadDashboard().catch(err => console.warn('Dashboard refresh failed:', err));
+        
+    } catch (error) {
+        console.error('❌ Error refreshing current view:', error);
+        showNotification('Failed to refresh current view', 'error');
+    }
+}
+
 async function loadDashboard() {
     try {
         // Load customers for dashboard
@@ -534,7 +619,7 @@ async function loadDashboard() {
                             <span class="recent-name">${customer.name}</span>
                             <span class="recent-company">${customer.company || 'No company'}</span>
                         </div>
-                        <span class="status-badge status-${(customer.status || 'Active').toLowerCase()}">${customer.status || 'Active'}</span>
+                        <span class="status-badge status-${(customer.status || 'ACTIVE').toLowerCase()}">${customer.status || 'ACTIVE'}</span>
                     </div>
                 `).join('')
                 : '<p class="text-muted">No customers yet</p>';
@@ -582,6 +667,11 @@ async function loadNotes() {
                 const customer = await fetchAPI(endpoints.customer(customerId));
                 if (customer) {
                     customerName = customer.name;
+                } else {
+                    // Customer doesn't exist anymore, clear the selection
+                    console.log('⚠️ Customer not found, clearing selection');
+                    selectedNotesCustomerId = null;
+                    if (headerSelect) headerSelect.value = '';
                 }
             }
         } else {
@@ -607,6 +697,10 @@ async function loadNotes() {
                 
                 const allNotesArrays = await Promise.all(allNotesPromises);
                 notes = allNotesArrays.flat();
+            } else {
+                // No customers left, show appropriate message
+                console.log('⚠️ No customers found, showing empty notes');
+                notes = [];
             }
         }
 
@@ -649,7 +743,7 @@ function renderCustomers(customers) {
             </td>
             <td>${customer.email || '-'}</td>
             <td>${customer.company || '-'}</td>
-            <td><span class="status-badge status-${(customer.status || 'Active').toLowerCase()}">${customer.status || 'Active'}</span></td>
+            <td><span class="status-badge status-${(customer.status || 'ACTIVE').toLowerCase()}">${customer.status || 'ACTIVE'}</span></td>
             <td>
                 <div class="table-actions">
                     <button class="btn btn-icon" onclick="editCustomer(${customer.id})" title="Edit Customer">
@@ -748,10 +842,18 @@ async function addCustomer() {
             email: elements.customerEmail.value.trim(),
             phone: elements.customerPhone.value.trim(),
             company: elements.customerCompany.value.trim(),
-            status: (elements.customerStatus.value || '').toUpperCase()
+            status: elements.customerStatus.value ? elements.customerStatus.value.toUpperCase() : 'ACTIVE'
         };
         
-        console.log('Customer data:', customerData);
+        console.log('=== CUSTOMER CREATION DEBUG ===');
+        console.log('Customer name:', elements.customerName.value);
+        console.log('Customer email:', elements.customerEmail.value);
+        console.log('Customer phone:', elements.customerPhone.value);
+        console.log('Customer company:', elements.customerCompany.value);
+        console.log('Customer status value:', elements.customerStatus.value);
+        console.log('Customer status element:', elements.customerStatus);
+        console.log('Final customer data:', customerData);
+        console.log('Customer data JSON:', JSON.stringify(customerData));
 
         // Show loading state
         const saveBtn = document.getElementById('saveCustomerBtn');
@@ -775,6 +877,7 @@ async function addCustomer() {
         }
         
         if (response) {
+            console.log('✅ Customer creation/update successful:', response);
             elements.addCustomerModal.classList.add('hidden');
             modalBackdrop.classList.add('hidden');
             
@@ -790,6 +893,9 @@ async function addCustomer() {
             
             // Reset form and modal state
             resetCustomerForm();
+        } else {
+            console.log('❌ Customer creation/update failed - no response received');
+            showNotification('Failed to save customer - no response from server', 'error');
         }
     } catch (error) {
         showNotification(error.message || 'Failed to save customer', 'error');
@@ -807,7 +913,7 @@ function resetCustomerForm() {
     elements.customerEmail.value = '';
     elements.customerPhone.value = '';
     elements.customerCompany.value = '';
-    elements.customerStatus.value = 'Active';
+    elements.customerStatus.value = 'ACTIVE';
     
     // Remove customer ID from modal
     delete elements.addCustomerModal.dataset.customerId;
@@ -824,20 +930,65 @@ async function deleteCustomer(id) {
     try {
         if (!confirm('Are you sure you want to delete this customer?')) return;
 
-        const response = await fetchAPI(endpoints.customer(id), {
-            method: 'DELETE'
+        console.log('🗑️ Deleting customer ID:', id);
+        
+        // Use direct fetch instead of fetchAPI to handle 204 response properly
+        let response = await fetch(endpoints.customer(id), {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : ''
+            }
         });
 
-        if (response !== null) {
+        // Handle 401 Unauthorized - try to refresh token
+        if (response.status === 401) {
+            console.log('🔄 Token expired during delete, attempting refresh...');
+            const refreshSuccess = await refreshAccessToken();
+            if (refreshSuccess) {
+                console.log('✅ Token refreshed, retrying delete...');
+                response = await fetch(endpoints.customer(id), {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            }
+        }
+
+        if (response.ok) {
+            console.log('✅ Customer deleted successfully, refreshing data...');
+            
+            // Show loading notification
+            showNotification('Customer deleted, refreshing data...', 'info');
+            
             // Refresh all data after deletion
-            await Promise.all([
-                loadCustomers(),
-                loadDashboard(),
-                loadNotes()
-            ]);
-            showNotification('Customer deleted successfully', 'success');
+            try {
+                // First refresh all data
+                await Promise.all([
+                    loadCustomers(),
+                    loadDashboard(),
+                    loadNotes()
+                ]);
+                console.log('✅ All data refreshed after customer deletion');
+                
+                // Then refresh the current view intelligently
+                await refreshCurrentView();
+                
+                showNotification('Customer deleted successfully', 'success');
+            } catch (refreshError) {
+                console.error('❌ Error refreshing data after deletion:', refreshError);
+                showNotification('Customer deleted but failed to refresh data', 'warning');
+            }
+        } else {
+            console.log('❌ Customer deletion failed - status:', response.status);
+            const errorText = await response.text();
+            console.log('❌ Error response:', errorText);
+            showNotification('Failed to delete customer', 'error');
         }
     } catch (error) {
+        console.error('❌ Error deleting customer:', error);
         showNotification(error.message || 'Failed to delete customer', 'error');
     }
 }
@@ -852,7 +1003,7 @@ async function editCustomer(id) {
         elements.customerEmail.value = customer.email || '';
         elements.customerPhone.value = customer.phone || '';
         elements.customerCompany.value = customer.company || '';
-        elements.customerStatus.value = customer.status || 'Active';
+        elements.customerStatus.value = customer.status || 'ACTIVE';
         
         // Store customer ID for update
         elements.addCustomerModal.dataset.customerId = id;
@@ -940,20 +1091,65 @@ async function deleteNote(customerId, noteId) {
     try {
         if (!confirm('Are you sure you want to delete this note?')) return;
 
-        const response = await fetchAPI(endpoints.note(customerId, noteId), {
-            method: 'DELETE'
+        console.log('🗑️ Deleting note ID:', noteId, 'for customer ID:', customerId);
+        
+        // Use direct fetch instead of fetchAPI to handle 204 response properly
+        let response = await fetch(endpoints.note(customerId, noteId), {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : ''
+            }
         });
 
-        if (response !== null) {
+        // Handle 401 Unauthorized - try to refresh token
+        if (response.status === 401) {
+            console.log('🔄 Token expired during delete, attempting refresh...');
+            const refreshSuccess = await refreshAccessToken();
+            if (refreshSuccess) {
+                console.log('✅ Token refreshed, retrying delete...');
+                response = await fetch(endpoints.note(customerId, noteId), {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            }
+        }
+
+        if (response.ok) {
+            console.log('✅ Note deleted successfully, refreshing data...');
+            
+            // Show loading notification
+            showNotification('Note deleted, refreshing data...', 'info');
+            
             // Refresh all data after deletion
-            await Promise.all([
-                loadNotes(),
-                loadDashboard(),
-                loadCustomers()
-            ]);
-            showNotification('Note deleted successfully', 'success');
+            try {
+                // First refresh all data
+                await Promise.all([
+                    loadNotes(),
+                    loadDashboard(),
+                    loadCustomers()
+                ]);
+                console.log('✅ All data refreshed after note deletion');
+                
+                // Then refresh the current view intelligently
+                await refreshCurrentView();
+                
+                showNotification('Note deleted successfully', 'success');
+            } catch (refreshError) {
+                console.error('❌ Error refreshing data after deletion:', refreshError);
+                showNotification('Note deleted but failed to refresh data', 'warning');
+            }
+        } else {
+            console.log('❌ Note deletion failed - status:', response.status);
+            const errorText = await response.text();
+            console.log('❌ Error response:', errorText);
+            showNotification('Failed to delete note', 'error');
         }
     } catch (error) {
+        console.error('❌ Error deleting note:', error);
         showNotification(error.message || 'Failed to delete note', 'error');
     }
 }
@@ -1041,6 +1237,11 @@ elements.addCustomerBtn.addEventListener('click', () => {
     // Show modal
     elements.addCustomerModal.classList.remove('hidden');
     modalBackdrop.classList.remove('hidden');
+    
+    // Debug: Check form state after reset
+    console.log('=== FORM RESET DEBUG ===');
+    console.log('Status value after reset:', elements.customerStatus.value);
+    console.log('Status options:', Array.from(elements.customerStatus.options).map(opt => ({value: opt.value, text: opt.text, selected: opt.selected})));
 });
     }
 

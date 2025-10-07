@@ -839,6 +839,144 @@ tr:hover td {
     color: #34d399;
 }
 
+/* Dark theme for login box and forms */
+[data-theme="dark"] .login-box {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .brand h1 {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .login-header p {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .form-field input,
+[data-theme="dark"] .form-field textarea,
+[data-theme="dark"] .form-field select {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .form-field input:focus,
+[data-theme="dark"] .form-field textarea:focus,
+[data-theme="dark"] .form-field select:focus {
+    border-color: var(--primary);
+    background: var(--bg-primary);
+}
+
+[data-theme="dark"] .form-group label {
+    color: var(--text-primary);
+}
+
+/* Dark theme for data table */
+[data-theme="dark"] .data-table {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .table-toolbar {
+    background: var(--bg-secondary);
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .search-box input {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .search-box i {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] th {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] td {
+    color: var(--text-primary);
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] tr:hover td {
+    background: var(--bg-secondary);
+}
+
+[data-theme="dark"] .customer-name {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .customer-phone {
+    color: var(--text-secondary);
+}
+
+/* Dark theme for modals */
+[data-theme="dark"] .modal-content {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .modal-header h2 {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .modal-footer {
+    border-top-color: var(--border-color);
+}
+
+/* Dark theme for select boxes */
+[data-theme="dark"] .select-box {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+/* Dark theme for note cards */
+[data-theme="dark"] .note-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .note-content {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .note-footer {
+    border-top-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+/* Dark theme for recent customers */
+[data-theme="dark"] .recent-customers {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .recent-customers h2 {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .recent-item {
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .recent-name {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .recent-company {
+    color: var(--text-secondary);
+}
+
 /* Dashboard Styles */
 .dashboard-stats {
     display: grid;

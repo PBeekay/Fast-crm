@@ -87,6 +87,18 @@ class CustomerBase(BaseModel):
     phone: Optional[str] = None  # Telefon, isteğe bağlı
     company: Optional[str] = None  # Şirket, isteğe bağlı
     status: Optional[CustomerStatusEnum] = CustomerStatusEnum.ACTIVE  # Müşteri durumu, varsayılan "Active"
+    
+    @validator('status', pre=True)
+    def validate_status(cls, v):
+        """Status doğrulama - boş string veya None ise ACTIVE yap"""
+        if v is None or v == '' or v == 'null':
+            return CustomerStatusEnum.ACTIVE
+        if isinstance(v, str):
+            try:
+                return CustomerStatusEnum(v.upper())
+            except ValueError:
+                return CustomerStatusEnum.ACTIVE
+        return v
 
 class CustomerCreate(CustomerBase):
     """Müşteri oluşturma şeması - yeni müşteri ekleme için"""

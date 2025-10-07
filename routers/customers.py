@@ -28,22 +28,32 @@ def create_customer(
     current_user: models.User = Depends(get_premium_user)  # Premium kullanıcı gerekli
 ):
     """Yeni müşteri oluşturur (Premium kullanıcı gerekli)"""
-    logger.info(f"👤 Premium user {current_user.email} creating customer: {customer_in.name}")
-    
-    customer = models.Customer(
-        name=customer_in.name,
-        email=customer_in.email,
-        phone=customer_in.phone,
-        company=customer_in.company,
-        status=customer_in.status,
-        owner_id=current_user.id
-    )
-    db.add(customer)
-    db.commit()
-    db.refresh(customer)
-    
-    logger.info(f"✅ Customer created: {customer.name} (ID: {customer.id})")
-    return customer
+    try:
+        logger.info(f"👤 Premium user {current_user.email} creating customer: {customer_in.name}")
+        logger.info(f"📊 Customer data received: name={customer_in.name}, email={customer_in.email}, phone={customer_in.phone}, company={customer_in.company}, status={customer_in.status}")
+        
+        customer = models.Customer(
+            name=customer_in.name,
+            email=customer_in.email,
+            phone=customer_in.phone,
+            company=customer_in.company,
+            status=customer_in.status,
+            owner_id=current_user.id
+        )
+        db.add(customer)
+        db.commit()
+        db.refresh(customer)
+        
+        logger.info(f"✅ Customer created: {customer.name} (ID: {customer.id})")
+        return customer
+    except Exception as e:
+        logger.error(f"❌ Error creating customer: {str(e)}")
+        logger.error(f"❌ Customer data that caused error: {customer_in.dict()}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to create customer: {str(e)}"
+        )
 
 @router.get("/", response_model=List[schemas.CustomerOut])
 def list_customers(
