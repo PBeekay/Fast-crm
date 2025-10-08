@@ -161,3 +161,8 @@ class OAuth2ClientCredentials(BaseModel):
     """OAuth2 Client credentials şeması - sadece client_id ve client_secret"""
     client_id: str  # Client ID
     client_secret: str  # Client Secret
+
+class UserRegistrationResponse(BaseModel):
+    """Kullanıcı kayıt yanıt şeması - OAuth2 credentials olmadan"""
+    user: UserOut  # Kullanıcı bilgileri
+    message: str  # Başarı mesajı

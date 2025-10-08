@@ -40,10 +40,15 @@ router = APIRouter(
 
 logger = logging.getLogger("fastcrm")
 
-@router.post("/register", response_model=dict)
+@router.post("/register", response_model=schemas.UserRegistrationResponse)
 @limiter.limit("5/minute")  # SECURITY: Rate limit registration attempts
 def register(request: Request, user_in: schemas.UserCreate, db: Session = Depends(get_db)):
-    """Kullanıcı kaydı - yeni kullanıcı oluşturur ve OAuth2 client credentials verir"""
+    """
+    Kullanıcı kaydı - yeni kullanıcı oluşturur ve OAuth2 client credentials oluşturur.
+    
+    OAuth2 credentials otomatik oluşturulur ancak güvenlik nedeniyle yanıtta döndürülmez.
+    API erişimi için OAuth2 credentials'ı Swagger UI'dan veya admin panelinden alabilirsiniz.
+    """
     logger.info(f"📝 User registration attempt: {user_in.email}")
     
     existing = get_user_by_email(db, user_in.email)
@@ -84,19 +89,8 @@ def register(request: Request, user_in: schemas.UserCreate, db: Session = Depend
     logger.info(f"🔑 OAuth2 Client created: {client_id}")
     
     return {
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": user.role.value,
-            "is_active": user.is_active,
-            "created_at": user.created_at
-        },
-        "oauth2_client": {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "message": "Save these credentials securely! You'll need them to access the API."
-        }
+        "user": user,
+        "message": "Registration successful! You can now login with your credentials. Your API access credentials have been created and can be viewed in the Swagger UI documentation."
     }
 
 @router.post("/oauth2/token", response_model=schemas.Token)
@@ -260,6 +254,27 @@ def get_my_tokens(
     
     logger.info(f"✅ Found {len(active_tokens)} active tokens")
     return active_tokens
+
+@router.get("/me/oauth2-credentials", response_model=List[schemas.OAuth2ClientOut])
+def get_my_oauth2_credentials(
+    current_user: models.User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """
+    Kullanıcının OAuth2 client credentials'larını listeler.
+    
+    Bu endpoint, API erişimi için gerekli client_id ve client_secret bilgilerini döndürür.
+    Sadece Swagger UI veya authenticated API çağrıları üzerinden erişilebilir.
+    """
+    logger.info(f"🔑 Getting OAuth2 credentials for user: {current_user.email}")
+    
+    oauth2_clients = db.query(models.OAuth2Client).filter(
+        models.OAuth2Client.user_id == current_user.id,
+        models.OAuth2Client.is_active == "true"
+    ).order_by(models.OAuth2Client.created_at.desc()).all()
+    
+    logger.info(f"✅ Found {len(oauth2_clients)} OAuth2 clients")
+    return oauth2_clients
 
 @router.delete("/me/tokens/{token_id}")
 def revoke_token(

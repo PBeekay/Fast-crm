@@ -323,8 +323,8 @@ async function fetchAPI(endpoint, options = {}) {
             msg = `Unknown error type: ${typeof error}`;
         }
         
-        showNotification(msg, 'error');
-        return null;
+        // Re-throw the error so calling functions can handle it
+        throw new Error(msg);
     }
 }
 
@@ -876,27 +876,23 @@ async function addCustomer() {
             response = await createCustomer(customerData);
         }
         
-        if (response) {
-            console.log('✅ Customer creation/update successful:', response);
-            elements.addCustomerModal.classList.add('hidden');
-            modalBackdrop.classList.add('hidden');
-            
-            // Refresh all data after add/update
-            await Promise.all([
-                loadCustomers(),
-                loadDashboard(),
-                loadNotes()
-            ]);
-            
-            const message = customerId ? 'Customer updated successfully' : 'Customer added successfully';
-            showNotification(message, 'success');
-            
-            // Reset form and modal state
-            resetCustomerForm();
-        } else {
-            console.log('❌ Customer creation/update failed - no response received');
-            showNotification('Failed to save customer - no response from server', 'error');
-        }
+        // Success - response received
+        console.log('✅ Customer creation/update successful:', response);
+        elements.addCustomerModal.classList.add('hidden');
+        modalBackdrop.classList.add('hidden');
+        
+        // Refresh all data after add/update
+        await Promise.all([
+            loadCustomers(),
+            loadDashboard(),
+            loadNotes()
+        ]);
+        
+        const message = customerId ? 'Customer updated successfully' : 'Customer added successfully';
+        showNotification(message, 'success');
+        
+        // Reset form and modal state
+        resetCustomerForm();
     } catch (error) {
         showNotification(error.message || 'Failed to save customer', 'error');
     } finally {

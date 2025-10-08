@@ -127,7 +127,7 @@ async def get_admin_user(current_user: models.User = Depends(get_current_user)):
         logger.warning(f"❌ Admin access denied for user: {current_user.email} (Role: {current_user.role.value})")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Admin privileges required"
+            detail="You do not have permission to perform this action. Admin privileges required."
         )
     return current_user
 
@@ -137,7 +137,7 @@ async def get_premium_user(current_user: models.User = Depends(get_current_user)
         logger.warning(f"❌ Premium access denied for user: {current_user.email} (Role: {current_user.role.value})")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Premium user privileges required"
+            detail="You do not have permission to perform this action. Premium user privileges required."
         )
     return current_user
 
@@ -147,7 +147,7 @@ async def get_active_user(current_user: models.User = Depends(get_current_user))
         logger.warning(f"❌ Inactive user access denied: {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Account is inactive"
+            detail="You do not have permission to perform this action. Your account is inactive."
         )
     return current_user
 

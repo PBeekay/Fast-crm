@@ -9,8 +9,9 @@ load_dotenv()
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -35,6 +36,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger("fastcrm")
 
+# Lifespan event handler
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan event handler"""
+    # Startup
+    logger.info("🚀 FastCRM starting up...")
+    logger.info("📊 Router endpoints loaded:")
+    logger.info("  🔐 Authentication: /api/auth/*")
+    logger.info("  👥 Customers: /api/customers/* (Premium+ required)")
+    logger.info("  📝 Notes: /api/customers/*/notes/*")
+    logger.info("  🛠️ System: /api/system/*")
+    logger.info("  👑 Admin: /api/admin/* (Admin only)")
+    logger.info("✅ FastCRM ready!")
+    
+    yield
+    
+    # Shutdown
+    logger.info("🛑 FastCRM shutting down...")
+    logger.info("👋 Goodbye!")
+
 # Veritabanı tablolarını oluştur - hata kontrolü ile
 try:
     models.Base.metadata.create_all(bind=engine)
@@ -52,7 +73,8 @@ app = FastAPI(
     description="Modern FastAPI-based CRM application with advanced authentication",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # SECURITY: Add rate limiting
@@ -191,34 +213,13 @@ app.include_router(admin_router)
 @app.get("/api/health")
 async def health_redirect():
     """Eski health endpoint'ini yeni system/health'e yönlendir"""
-    from fastapi import RedirectResponse
     return RedirectResponse(url="/api/system/health")
 
 @app.get("/api/debug/database")
 async def debug_redirect():
     """Eski debug endpoint'ini yeni system/debug/database'e yönlendir"""
-    from fastapi import RedirectResponse
     return RedirectResponse(url="/api/system/debug/database")
 
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    """Uygulama başlatma eventi"""
-    logger.info("🚀 FastCRM starting up...")
-    logger.info("📊 Router endpoints loaded:")
-    logger.info("  🔐 Authentication: /api/auth/*")
-    logger.info("  👥 Customers: /api/customers/* (Premium+ required)")
-    logger.info("  📝 Notes: /api/customers/*/notes/*")
-    logger.info("  🛠️ System: /api/system/*")
-    logger.info("  👑 Admin: /api/admin/* (Admin only)")
-    logger.info("✅ FastCRM ready!")
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Uygulama kapatma eventi"""
-    logger.info("🛑 FastCRM shutting down...")
-    logger.info("👋 Goodbye!")
 
 if __name__ == "__main__":
     import uvicorn
