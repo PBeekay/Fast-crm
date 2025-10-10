@@ -2,6 +2,18 @@
 
 A modern, FastAPI-based CRM application with advanced authentication, role-based access control, and a beautiful responsive UI.
 
+## ⚠️ Security Notice
+
+**IMPORTANT**: Before deploying to production or sharing on GitHub:
+
+1. ✅ **Never commit `.env` file** - It contains sensitive credentials
+2. ✅ **Change the default SECRET_KEY** - Generate a new secure key
+3. ✅ **Update CORS origins** - Don't use wildcard `*` in production
+4. ✅ **Use HTTPS** - Always use TLS/SSL in production
+5. ✅ **Review `SECURITY.md`** - Follow all security best practices
+
+📖 **See [SECURITY.md](SECURITY.md) for comprehensive security guidelines**
+
 ## ✨ Features
 
 - **🔐 OAuth2 Authentication** - Secure client credentials flow
@@ -28,22 +40,44 @@ git clone <repository-url>
 cd fastcrm
 ```
 
-2. **Install dependencies**
+2. **Create virtual environment** (recommended)
+```bash
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# Linux/Mac
+source venv/bin/activate
+```
+
+3. **Install dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Create admin user**
+4. **Configure environment variables**
+```bash
+# Copy the example environment file
+cp env.example .env
+
+# Generate a secure secret key
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Edit .env and update CRM_SECRET_KEY with the generated key
+```
+
+5. **Create admin user**
 ```bash
 python create_admin.py
 ```
 
-4. **Start the server**
+6. **Start the server**
 ```bash
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-5. **Access the application**
+7. **Access the application**
 - **Web Interface**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 - **Admin Panel**: http://localhost:8000/docs (look for "👑 Admin Management")
@@ -111,7 +145,7 @@ curl -X POST "http://localhost:8000/api/admin/users/123/promote" \
 
 FastCRM uses OAuth2 Client Credentials for API authentication. **No pre-created accounts** - everyone must register and get their own client credentials.
 
-#### 1. User Registration (Gets OAuth2 Credentials)
+#### 1. User Registration
 ```bash
 POST /api/auth/register
 Content-Type: application/json
@@ -134,13 +168,14 @@ Content-Type: application/json
     "is_active": "true",
     "created_at": "2024-01-01T00:00:00Z"
   },
-  "oauth2_client": {
-    "client_id": "fcrm_abc123def456",
-    "client_secret": "your-secret-here",
-    "message": "Save these credentials securely! You'll need them to access the API."
-  }
+  "message": "Registration successful! You can now login with your credentials. Your API access credentials have been created and can be viewed in the Swagger UI documentation."
 }
 ```
+
+**Note**: OAuth2 credentials are automatically created but not exposed in the response for security. Access them via:
+- Login to the application
+- Go to `/docs` (Swagger UI)
+- Use `GET /api/auth/me/oauth2-credentials` endpoint
 
 #### 2. Get Access Token (Using Client Credentials)
 ```bash
@@ -245,26 +280,82 @@ start_server.bat
 ## 🔧 Configuration
 
 ### Environment Variables
+
+**IMPORTANT**: Always use `.env` file for configuration. Never commit `.env` to version control!
+
 ```bash
+# Copy the example file
+cp env.example .env
+```
+
+**Required Configuration:**
+```bash
+# SECURITY: JWT Secret Key (REQUIRED - Generate a new one!)
+CRM_SECRET_KEY=your_secure_secret_key_here_minimum_32_characters
+
 # Database
 DATABASE_URL=sqlite:///./crm.db
 
-# Security
-CRM_SECRET_KEY=your-secret-key-here
-
-# CORS
+# CORS (Update for production!)
 ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
 # Environment
 ENVIRONMENT=development
 ```
 
+**See `env.example` for all available configuration options.**
+
 ### Security Features
-- **Rate Limiting** - Prevents abuse
-- **CORS Protection** - Configurable origins
-- **Security Headers** - XSS, CSRF protection
-- **Input Validation** - Pydantic schemas
-- **Role-Based Access** - Granular permissions
+
+#### Built-in Security
+- ✅ **JWT Authentication** - Secure token-based auth
+- ✅ **OAuth2 Client Credentials** - API access control
+- ✅ **Rate Limiting** - Prevents abuse (configurable)
+- ✅ **CORS Protection** - Configurable origins (no wildcards)
+- ✅ **Security Headers** - XSS, CSRF, clickjacking protection
+- ✅ **Input Validation** - Pydantic schemas with type checking
+- ✅ **Role-Based Access Control** - Granular permissions
+- ✅ **Password Hashing** - bcrypt with salt
+- ✅ **SQL Injection Protection** - SQLAlchemy ORM
+- ✅ **Session Management** - Refresh token rotation
+
+#### Security Best Practices
+
+**Before Deploying to Production:**
+
+1. **Change the Secret Key**
+   ```bash
+   # Generate a new secure key
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   
+   # Update in .env
+   CRM_SECRET_KEY=<generated-key>
+   ```
+
+2. **Use Production Database**
+   ```bash
+   # PostgreSQL (recommended)
+   DATABASE_URL=postgresql://user:password@localhost:5432/fastcrm
+   ```
+
+3. **Configure CORS Properly**
+   ```bash
+   # Only allow your actual domains
+   ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+   ```
+
+4. **Enable HTTPS**
+   - Use reverse proxy (nginx/Apache)
+   - Valid SSL/TLS certificate
+   - Redirect HTTP to HTTPS
+
+5. **Set Production Environment**
+   ```bash
+   ENVIRONMENT=production
+   DEBUG=false
+   ```
+
+**📖 For detailed security information, see [SECURITY.md](SECURITY.md)**
 
 ## 📱 Frontend Features
 

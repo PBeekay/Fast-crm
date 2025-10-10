@@ -5,20 +5,20 @@ from passlib.context import CryptContext  # Şifre hashleme için
 import os  # Ortam değişkenleri için
 import secrets  # Güvenli rastgele string üretimi için
 
-# Load environment variables from .env file
+# .env dosyasından ortam değişkenlerini yükle
 from dotenv import load_dotenv
 load_dotenv()
 
-# SECURITY: Secret key management with proper validation
-# Try multiple methods to get the secret key
+# GÜVENLİK: Uygun doğrulama ile gizli anahtar yönetimi
+# Gizli anahtarı almak için birden fazla yöntem dene
 SECRET_KEY = os.getenv("CRM_SECRET_KEY")
 if not SECRET_KEY:
-    # Try loading from .env file again with explicit path
+    # .env dosyasından açık yol ile tekrar yüklemeyi dene
     load_dotenv(".env")
     SECRET_KEY = os.getenv("CRM_SECRET_KEY")
     
 if not SECRET_KEY:
-    # Fallback: try to read from .env file directly
+    # Geri dönüş: .env dosyasından doğrudan okumaya çalış
     try:
         with open(".env", "r") as f:
             for line in f:
@@ -42,12 +42,12 @@ REFRESH_TOKEN_EXPIRE_DAYS = 30  # Refresh token geçerlilik süresi: 30 gün
 try:
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 except Exception as e:
-    # Fallback to a simpler configuration if bcrypt fails
+    # Bcrypt başarısız olursa daha basit bir yapılandırmaya geri dön
     pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=12)
 
 def get_password_hash(password: str) -> str:
     """Şifreyi hash'leyerek güvenli şekilde saklar"""
-    # SECURITY: Validate password length before processing
+    # GÜVENLİK: İşlemeden önce şifre uzunluğunu doğrula
     if len(password.encode('utf-8')) > 72:
         raise ValueError("Password too long (max 72 characters)")
     if len(password) < 8:
@@ -56,18 +56,18 @@ def get_password_hash(password: str) -> str:
     try:
         return pwd_context.hash(password)  # Şifreyi bcrypt ile hash'le
     except Exception as e:
-        # SECURITY: No fallback to weak hashing
+        # GÜVENLİK: Zayıf hashleme'ye geri dönüş yok
         raise ValueError("Password hashing failed - please try again")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Düz metin şifre ile hash'lenmiş şifreyi karşılaştırır"""
     try:
-        # SECURITY: Validate password length
+        # GÜVENLİK: Şifre uzunluğunu doğrula
         if len(plain_password.encode('utf-8')) > 72:
-            return False  # Don't truncate, reject long passwords
+            return False  # Kesme, uzun şifreleri reddet
         return pwd_context.verify(plain_password, hashed_password)  # Şifre doğrulama
     except Exception as e:
-        # SECURITY: No fallback to weak verification
+        # GÜVENLİK: Zayıf doğrulamaya geri dönüş yok
         return False
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
