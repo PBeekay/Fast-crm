@@ -1,429 +1,447 @@
-# 🚀 FastCRM - Modern Customer Relationship Management
+## 🇹🇷 Türkçe Kullanım Rehberi
 
-A modern, FastAPI-based CRM application with advanced authentication, role-based access control, and a beautiful responsive UI.
+### 📖 **Adım Adım Kurulum**
 
-## ⚠️ Security Notice
-
-**IMPORTANT**: Before deploying to production or sharing on GitHub:
-
-1. ✅ **Never commit `.env` file** - It contains sensitive credentials
-2. ✅ **Change the default SECRET_KEY** - Generate a new secure key
-3. ✅ **Update CORS origins** - Don't use wildcard `*` in production
-4. ✅ **Use HTTPS** - Always use TLS/SSL in production
-5. ✅ **Review `SECURITY.md`** - Follow all security best practices
-
-📖 **See [SECURITY.md](SECURITY.md) for comprehensive security guidelines**
-
-## ✨ Features
-
-- **🔐 OAuth2 Authentication** - Secure client credentials flow
-- **👥 Role-Based Access Control** - Basic, Premium, and Admin users
-- **📊 Customer Management** - Add, edit, delete customers with status tracking
-- **📝 Notes System** - Track customer interactions and important information
-- **🌙 Dark/Light Mode** - Beautiful responsive UI with theme switching
-- **📱 Mobile Responsive** - Works perfectly on all devices
-- **🛡️ Security** - Rate limiting, CORS protection, and secure headers
-- **📈 Dashboard** - Real-time statistics and recent activity
-- **🔧 Admin Panel** - Complete user and system management
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Python 3.8+
-- pip (Python package manager)
-
-### Installation
-
-1. **Clone the repository**
+#### **1. Projeyi Klonlayın**
 ```bash
 git clone <repository-url>
-cd fastcrm
+cd Fast-crm
 ```
 
-2. **Create virtual environment** (recommended)
+#### **2. Sanal Ortam Oluşturun**
 ```bash
+# Sanal ortamı oluştur
 python -m venv venv
 
-# Windows
+# Windows için aktifleştir
 venv\Scripts\activate
 
-# Linux/Mac
+# Linux/Mac için
 source venv/bin/activate
 ```
 
-3. **Install dependencies**
+#### **3. Bağımlılıkları Yükleyin**
 ```bash
 pip install -r requirements.txt
 ```
 
-4. **Configure environment variables**
+#### **4. Ortam Değişkenlerini Ayarlayın**
 ```bash
-# Copy the example environment file
-cp env.example .env
+# env.example'ı kopyalayın
+copy env.example .env  # Windows
+cp env.example .env    # Linux/Mac
 
-# Generate a secure secret key
+# Güvenli bir gizli anahtar oluşturun
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 
-# Edit .env and update CRM_SECRET_KEY with the generated key
+# Çıktıyı kopyalayın ve .env dosyasında CRM_SECRET_KEY değerini güncelleyin
 ```
 
-5. **Create admin user**
+**Örnek .env dosyası:**
+```env
+CRM_SECRET_KEY=sizin_güvenli_anahtarınız_buraya
+DATABASE_URL=sqlite:///./crm.db
+ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+ENVIRONMENT=development
+```
+
+#### **5. İlk Admin Hesabını Oluşturun**
 ```bash
 python create_admin.py
 ```
 
-6. **Start the server**
+**Script sizden şunları soracak:**
+- E-posta adresi (örn: admin@example.com)
+- Şifre (en az 8 karakter)
+- Tam adınız
+
+**Çıktı örneği:**
+```
+Admin kullanıcısı başarıyla oluşturuldu!
+E-posta: admin@example.com
+Client ID: fcrm_abc123def456
+Client Secret: xyz789_guvenlı_secret
+```
+
+⚠️ **ÖNEMLİ**: Client ID ve Secret'ı kaydedin! API erişimi için gerekli.
+
+#### **6. Sunucuyu Başlatın**
 ```bash
+# Geliştirme modunda
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# veya Windows'ta
+start_server.bat
+
+# veya Python script ile
+python start_server.py
 ```
 
-7. **Access the application**
-- **Web Interface**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
-- **Admin Panel**: http://localhost:8000/docs (look for "👑 Admin Management")
+#### **7. Uygulamaya Erişin**
+- **Ana Sayfa**: http://localhost:8000
+- **API Dokümantasyonu**: http://localhost:8000/docs
+- **Alternatif Dokümantasyon**: http://localhost:8000/redoc
 
-## 👑 Admin Commands
+---
 
-### Create Admin User
+### 👤 **Kullanıcı İşlemleri**
+
+#### **Yeni Hesap Oluşturma**
+
+**Web Arayüzü ile:**
+1. http://localhost:8000 adresine gidin
+2. **"Register"** butonuna tıklayın
+3. Formu doldurun:
+   - E-posta adresi
+   - Şifre (en az 8 karakter)
+   - Tam adınız
+4. **"Register"** butonuna tıklayın
+5. Otomatik olarak giriş sayfasına yönlendirileceksiniz
+
+**API ile:**
 ```bash
-python create_admin.py
-```
-This script will:
-- Create a new admin user
-- Set admin role
-- Generate OAuth2 client credentials
-- Show client_id and client_secret
-
-### API Endpoints for Admin Management
-
-#### User Management
-- `GET /api/admin/users` - List all users
-- `GET /api/admin/users/{user_id}` - Get specific user
-- `PUT /api/admin/users/{user_id}` - Update user
-- `POST /api/admin/users/{user_id}/promote` - **Promote user to admin**
-- `POST /api/admin/users/{user_id}/toggle-status` - Toggle user status
-- `DELETE /api/admin/users/{user_id}` - Delete user
-
-#### Customer Management
-- `GET /api/admin/customers` - List all customers
-
-#### Statistics
-- `GET /api/admin/stats` - Get admin statistics
-
-### How to Give Admin Privileges
-
-#### Method 1: Using the API (Recommended)
-```bash
-# First, you need to be logged in as an admin
-# Then promote a user to admin:
-
-POST /api/admin/users/{user_id}/promote
-Content-Type: application/json
-Authorization: Bearer {your_admin_token}
-
-{
-  "target_role": "admin"
-}
-```
-
-#### Method 2: Using the create_admin.py script
-```bash
-python create_admin.py
-```
-
-### Example: Promote User to Admin
-```bash
-curl -X POST "http://localhost:8000/api/admin/users/123/promote" \
+curl -X POST "http://localhost:8000/api/auth/register" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
-  -d '{"target_role": "admin"}'
+  -d '{
+    "email": "user@example.com",
+    "password": "guvenli_sifre123",
+    "full_name": "Ahmet Yılmaz"
+  }'
 ```
 
-## 🔐 Authentication System
-
-### OAuth2 Client Credentials Flow
-
-FastCRM uses OAuth2 Client Credentials for API authentication. **No pre-created accounts** - everyone must register and get their own client credentials.
-
-#### 1. User Registration
-```bash
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "password123",
-  "full_name": "John Doe"
-}
-```
-
-**Response:**
+**Cevap:**
 ```json
 {
   "user": {
     "id": 1,
     "email": "user@example.com",
-    "full_name": "John Doe",
+    "full_name": "Ahmet Yılmaz",
     "role": "basic_user",
-    "is_active": "true",
+    "is_active": true,
     "created_at": "2024-01-01T00:00:00Z"
   },
-  "message": "Registration successful! You can now login with your credentials. Your API access credentials have been created and can be viewed in the Swagger UI documentation."
+  "message": "Kayıt başarılı! Artık giriş yapabilirsiniz."
 }
 ```
 
-**Note**: OAuth2 credentials are automatically created but not exposed in the response for security. Access them via:
-- Login to the application
-- Go to `/docs` (Swagger UI)
-- Use `GET /api/auth/me/oauth2-credentials` endpoint
+#### **Giriş Yapma**
 
-#### 2. Get Access Token (Using Client Credentials)
+**Web Arayüzü ile:**
+1. Ana sayfada e-posta ve şifrenizi girin
+2. **"Login"** butonuna tıklayın
+3. Başarılı girişten sonra dashboard açılacak
+
+**API ile:**
 ```bash
-POST /api/auth/oauth2/token
-Content-Type: application/json
-
-{
-  "client_id": "fcrm_abc123def456",
-  "client_secret": "your-secret-here"
-}
+curl -X POST "http://localhost:8000/api/auth/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=user@example.com&password=guvenli_sifre123"
 ```
 
-**Response:**
+**Cevap:**
 ```json
 {
   "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-  "refresh_token": "refresh-token-here",
+  "refresh_token": "abc123def456...",
   "token_type": "bearer",
   "expires_in": 3600
 }
 ```
 
-#### 3. Use Access Token for API Calls
+---
+
+### 🎭 **Kullanıcı Rolleri ve Yetkileri**
+
+#### **1. Basic User (Temel Kullanıcı)**
+- ✅ Kendi profilini görüntüleyebilir
+- ✅ Şifresini değiştirebilir
+- ❌ Müşteri ekleyemez
+- ❌ Not oluşturamaz
+
+**Kayıt olduğunuzda otomatik olarak bu role sahip olursunuz.**
+
+#### **2. Premium User (Premium Kullanıcı)**
+- ✅ Basic User'ın tüm yetkileri
+- ✅ Müşteri ekleyebilir
+- ✅ Müşterilerini düzenleyebilir
+- ✅ Müşterilerine not ekleyebilir
+- ❌ Diğer kullanıcıları göremez/düzenleyemez
+
+**Bu role nasıl yükseltilirsiniz:**
+- Admin bir kullanıcıyı premium'a yükseltmelidir
+- Veya ödeme sistemi entegre edilirse (gelecek özellik)
+
+#### **3. Admin (Yönetici)**
+- ✅ Premium User'ın tüm yetkileri
+- ✅ Tüm kullanıcıları görüntüleyebilir
+- ✅ Kullanıcıların rollerini değiştirebilir
+- ✅ Kullanıcıları aktif/pasif yapabilir
+- ✅ Kullanıcı silebilir
+- ✅ Tüm müşterileri görüntüleyebilir
+- ✅ Sistem istatistiklerini görebilir
+
+---
+
+### 👑 **Admin İşlemleri**
+
+#### **Kullanıcıyı Premium'a Yükseltme**
+
+**API Dokümantasyonu üzerinden (Önerilen):**
+1. http://localhost:8000/docs adresine gidin
+2. Admin hesabı ile giriş yapın (Authorize butonu)
+3. **"Admin Management"** bölümünü bulun
+4. **POST /api/admin/users/{user_id}/promote** endpoint'ini açın
+5. `user_id` girin (örn: 2)
+6. Request body:
+   ```json
+   {
+     "target_role": "premium_user"
+   }
+   ```
+7. **"Execute"** butonuna tıklayın
+
+**Komut satırı ile:**
 ```bash
-GET /api/customers
-Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+curl -X POST "http://localhost:8000/api/admin/users/2/promote" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ADMIN_TOKEN_BURAYA" \
+  -d '{"target_role": "premium_user"}'
 ```
 
-## 👥 User Roles
+#### **Kullanıcıyı Admin'e Yükseltme**
 
-- **`basic_user`** - Basic user (can only see own data)
-- **`premium_user`** - Premium user (can add customers)
-- **`admin`** - Admin (can manage all users and data)
+⚠️ **DİKKAT**: Sadece mevcut adminler yeni admin oluşturabilir!
 
-## 📊 API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/token` - Login (get tokens)
-- `POST /api/auth/refresh` - Refresh access token
-- `POST /api/auth/logout` - Logout
-- `GET /api/auth/me` - Get current user info
-
-### Customers (Premium+ required)
-- `GET /api/customers` - List customers
-- `POST /api/customers` - Create customer
-- `GET /api/customers/{id}` - Get customer
-- `PUT /api/customers/{id}` - Update customer
-- `DELETE /api/customers/{id}` - Delete customer
-
-### Notes
-- `GET /api/customers/{id}/notes` - List customer notes
-- `POST /api/customers/{id}/notes` - Create note
-- `PUT /api/customers/{id}/notes/{note_id}` - Update note
-- `DELETE /api/customers/{id}/notes/{note_id}` - Delete note
-
-### System
-- `GET /api/system/health` - Health check
-- `GET /api/system/stats` - System statistics
-- `GET /api/system/debug/database` - Database debug info
-
-## 🛠️ Development
-
-### Project Structure
-```
-fastcrm/
-├── main.py                 # FastAPI application
-├── database.py             # Database configuration
-├── models.py               # SQLAlchemy models
-├── schemas.py              # Pydantic schemas
-├── auth.py                 # Authentication logic
-├── dependencies.py         # FastAPI dependencies
-├── create_admin.py         # Admin user creation script
-├── routers/                # API route modules
-│   ├── auth.py            # Authentication routes
-│   ├── customers.py       # Customer management
-│   ├── notes.py           # Notes management
-│   ├── admin.py           # Admin operations
-│   └── system.py          # System endpoints
-├── static/                 # Frontend files
-│   ├── index.html         # Main application
-│   ├── register.html      # Registration page
-│   ├── app.js             # Frontend JavaScript
-│   └── style.css          # Styling
-└── requirements.txt       # Python dependencies
-```
-
-### Running in Development
+**Yöntem 1: API ile**
 ```bash
-# Start with auto-reload
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# Or use the batch file (Windows)
-start_server.bat
+curl -X POST "http://localhost:8000/api/admin/users/2/promote" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -d '{"target_role": "admin"}'
 ```
 
-### Database
-- **Default**: SQLite (`crm.db`)
-- **Production**: Set `DATABASE_URL` environment variable
-- **Migrations**: Tables are created automatically on startup
+**Yöntem 2: Script ile**
+```bash
+python create_admin.py
+```
+Bu komut tamamen yeni bir admin hesabı oluşturur.
 
-## 🔧 Configuration
-
-### Environment Variables
-
-**IMPORTANT**: Always use `.env` file for configuration. Never commit `.env` to version control!
+#### **Kullanıcıyı Aktif/Pasif Yapma**
 
 ```bash
-# Copy the example file
-cp env.example .env
+curl -X POST "http://localhost:8000/api/admin/users/2/toggle-status" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
-**Required Configuration:**
+#### **Tüm Kullanıcıları Listeleme**
+
 ```bash
-# SECURITY: JWT Secret Key (REQUIRED - Generate a new one!)
-CRM_SECRET_KEY=your_secure_secret_key_here_minimum_32_characters
-
-# Database
-DATABASE_URL=sqlite:///./crm.db
-
-# CORS (Update for production!)
-ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-
-# Environment
-ENVIRONMENT=development
+curl -X GET "http://localhost:8000/api/admin/users" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
-**See `env.example` for all available configuration options.**
+---
 
-### Security Features
+### 👥 **Müşteri Yönetimi**
 
-#### Built-in Security
-- ✅ **JWT Authentication** - Secure token-based auth
-- ✅ **OAuth2 Client Credentials** - API access control
-- ✅ **Rate Limiting** - Prevents abuse (configurable)
-- ✅ **CORS Protection** - Configurable origins (no wildcards)
-- ✅ **Security Headers** - XSS, CSRF, clickjacking protection
-- ✅ **Input Validation** - Pydantic schemas with type checking
-- ✅ **Role-Based Access Control** - Granular permissions
-- ✅ **Password Hashing** - bcrypt with salt
-- ✅ **SQL Injection Protection** - SQLAlchemy ORM
-- ✅ **Session Management** - Refresh token rotation
+⚠️ **NOT**: Müşteri işlemleri için **Premium** veya **Admin** rolüne sahip olmalısınız!
 
-#### Security Best Practices
+#### **Müşteri Ekleme**
 
-**Before Deploying to Production:**
+**Web Arayüzü ile:**
+1. Giriş yapın (Premium veya Admin hesap)
+2. Dashboard'da **"Add Customer"** butonuna tıklayın
+3. Formu doldurun:
+   - Ad
+   - E-posta
+   - Telefon
+   - Şirket
+   - Durum (Active/Inactive/Pending)
+4. **"Save"** butonuna tıklayın
 
-1. **Change the Secret Key**
-   ```bash
-   # Generate a new secure key
-   python -c "import secrets; print(secrets.token_urlsafe(32))"
-   
-   # Update in .env
-   CRM_SECRET_KEY=<generated-key>
-   ```
-
-2. **Use Production Database**
-   ```bash
-   # PostgreSQL (recommended)
-   DATABASE_URL=postgresql://user:password@localhost:5432/fastcrm
-   ```
-
-3. **Configure CORS Properly**
-   ```bash
-   # Only allow your actual domains
-   ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
-   ```
-
-4. **Enable HTTPS**
-   - Use reverse proxy (nginx/Apache)
-   - Valid SSL/TLS certificate
-   - Redirect HTTP to HTTPS
-
-5. **Set Production Environment**
-   ```bash
-   ENVIRONMENT=production
-   DEBUG=false
-   ```
-
-**📖 For detailed security information, see [SECURITY.md](SECURITY.md)**
-
-## 📱 Frontend Features
-
-### Responsive Design
-- **Mobile-first** approach
-- **Touch-friendly** interface
-- **Adaptive layout** for all screen sizes
-
-### Dark/Light Mode
-- **Automatic theme detection**
-- **Persistent theme storage**
-- **Smooth transitions**
-- **Keyboard shortcut**: `Ctrl+T`
-
-### User Experience
-- **Real-time notifications**
-- **Loading states**
-- **Error handling**
-- **Auto-refresh** after operations
-- **Keyboard shortcuts**
-
-## 🚀 Deployment
-
-### Production Setup
-1. **Set environment variables**
-2. **Use production database** (PostgreSQL recommended)
-3. **Configure CORS origins**
-4. **Set up reverse proxy** (nginx)
-5. **Enable HTTPS**
-
-### Docker (Optional)
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+**API ile:**
+```bash
+curl -X POST "http://localhost:8000/api/customers" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "name": "Mehmet Demir",
+    "email": "mehmet@example.com",
+    "phone": "+90 555 123 4567",
+    "company": "Demir AŞ",
+    "status": "active"
+  }'
 ```
 
-## 🤝 Contributing
+#### **Müşteri Düzenleme**
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+**Web Arayüzü ile:**
+1. Müşteri listesinde düzenlemek istediğiniz müşterinin yanındaki **"Edit"** butonuna tıklayın
+2. Bilgileri güncelleyin
+3. **"Update"** butonuna tıklayın
 
-## 📄 License
+**API ile:**
+```bash
+curl -X PUT "http://localhost:8000/api/customers/1" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "name": "Mehmet Demir",
+    "email": "mehmet.yeni@example.com",
+    "phone": "+90 555 999 8888",
+    "company": "Demir Holding",
+    "status": "active"
+  }'
+```
 
-This project is licensed under the MIT License.
+#### **Müşteri Silme**
 
-## 🆘 Support
+```bash
+curl -X DELETE "http://localhost:8000/api/customers/1" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
 
-- **Documentation**: Check `/docs` endpoint
-- **Issues**: Create GitHub issues
-- **Admin Commands**: See `ADMIN_COMMANDS.md`
+---
 
-## 🎯 Roadmap
+### 📝 **Not Sistemi**
 
-- [ ] Email notifications
-- [ ] File attachments
-- [ ] Advanced reporting
-- [ ] Mobile app
-- [ ] Multi-tenant support
-- [ ] API rate limiting dashboard
-- [ ] Audit logs
-- [ ] Backup/restore functionality
+#### **Müşteriye Not Ekleme**
+
+**Web Arayüzü ile:**
+1. Müşteri detay sayfasına gidin
+2. **"Add Note"** butonuna tıklayın
+3. Not içeriğini yazın
+4. **"Save"** butonuna tıklayın
+
+**API ile:**
+```bash
+curl -X POST "http://localhost:8000/api/customers/1/notes" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "content": "Müşteri ile görüşme yapıldı. Yeni proje için teklif hazırlanacak."
+  }'
+```
+
+#### **Notları Listeleme**
+
+```bash
+curl -X GET "http://localhost:8000/api/customers/1/notes" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+### 📊 **Dashboard ve İstatistikler**
+
+#### **Kendi İstatistiklerinizi Görme (Tüm Kullanıcılar)**
+
+```bash
+curl -X GET "http://localhost:8000/api/system/stats" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### **Sistem Geneli İstatistikler (Sadece Admin)**
+
+```bash
+curl -X GET "http://localhost:8000/api/admin/stats" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Dönen Bilgiler:**
+- Toplam kullanıcı sayısı
+- Aktif kullanıcı sayısı
+- Toplam müşteri sayısı
+- Rol dağılımı
+- Son aktiviteler
+
+---
+
+### 🔐 **Güvenlik İpuçları**
+
+#### **Güçlü Şifre Oluşturma**
+- En az 8 karakter
+- Büyük ve küçük harf karışımı
+- Sayı içermeli
+- Özel karakter içermeli (!, @, #, $, vb.)
+
+**Örnek güçlü şifreler:**
+- `Crm@2024!Guvenli`
+- `MyP@ssw0rd!123`
+- `Admin#Secure$99`
+
+#### **Token Güvenliği**
+- Access token'ları güvenli bir yerde saklayın
+- Token'ları kimseyle paylaşmayın
+- Token süresi dolduğunda refresh token ile yenileyin
+
+#### **Hesap Güvenliği**
+- Admin şifrelerini düzenli olarak değiştirin
+- Gereksiz admin hesapları oluşturmayın
+- Kullanılmayan hesapları pasif yapın
+
+---
+
+### 🎨 **Arayüz Özellikleri**
+
+#### **Dark/Light Tema**
+- **Tema Değiştirme**: Sağ üstteki ay/güneş ikonuna tıklayın
+- **Klavye Kısayolu**: `Ctrl + T`
+- Seçilen tema tarayıcıda kaydedilir
+
+#### **Mobil Uyumlu**
+- Tüm cihazlarda sorunsuz çalışır
+- Dokunmatik ekranlar için optimize edilmiştir
+- Responsive tasarım
+
+#### **Klavye Kısayolları**
+- `Ctrl + T`: Tema değiştir
+- `Esc`: Modal/form kapat
+
+---
+
+### 🚨 **Sorun Giderme**
+
+#### **"CRM_SECRET_KEY must be set" Hatası**
+```bash
+# .env dosyasını kontrol edin
+# CRM_SECRET_KEY satırının doğru ayarlandığından emin olun
+
+# Yeni bir key oluşturun:
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Çıktıyı .env dosyasına ekleyin
+```
+
+#### **"Database locked" Hatası**
+```bash
+# Sunucuyu durdurun
+# crm.db dosyasını silin
+# Sunucuyu tekrar başlatın (otomatik olarak yeniden oluşturulacak)
+
+rm crm.db  # Linux/Mac
+del crm.db  # Windows
+```
+
+#### **Admin Hesabına Erişemiyorum**
+```bash
+# Yeni bir admin hesabı oluşturun
+python create_admin.py
+```
+
+#### **Port 8000 Kullanımda**
+```bash
+# Farklı bir port kullanın
+python -m uvicorn main:app --reload --port 8001
+```
+
+---
+
+### 📞 **Destek ve İletişim**
+
+- **API Dokümantasyonu**: http://localhost:8000/docs
+- **GitHub Issues**: Sorunlarınızı GitHub'da bildirin
+- **E-posta**: Projenizin destek e-postası
 
 ---
 
